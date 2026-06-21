@@ -1,0 +1,6 @@
+{
+  "name": "Astrix Innovations",
+  "description": "A premium corporate website for Astrix Innovations, showcasing advanced engineering, digital healthcare solutions, AI automated systems, and research and development with a futuristic, glassmorphic design theme.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
