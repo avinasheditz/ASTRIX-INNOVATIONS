@@ -11,6 +11,7 @@
 import { useState, useEffect } from 'react';
 import Navbar from './components/Navbar';
 import ParticleBackground from './components/ParticleBackground';
+import CursorFollower from './components/CursorFollower';
 import HeroSection from './components/HeroSection';
 import AboutSec from './components/AboutSec';
 import ServicesSec from './components/ServicesSec';
@@ -25,17 +26,37 @@ import Careers from './components/Careers';
 import FutureCityCTA from './components/FutureCityCTA';
 import ContactSec from './components/ContactSec';
 import AdminDashboard from './components/AdminDashboard';
+import AiSearchSuite from './components/AiSearchSuite';
 import { ChevronUp, Cpu, ShieldAlert, Key } from 'lucide-react';
 
 export default function App() {
   const [activeSection, setActiveSection] = useState('home');
-  const [adminOpen, setAdminOpen] = useState(false);
+  const [isAdminRoute, setIsAdminRoute] = useState(false);
+
+  // Check URL pathname or hash for standalone /admin routing
+  useEffect(() => {
+    const handleRouteCheck = () => {
+      const path = window.location.pathname;
+      const hash = window.location.hash;
+      setIsAdminRoute(path === '/admin' || hash === '#admin');
+    };
+
+    handleRouteCheck();
+    window.addEventListener('popstate', handleRouteCheck);
+    window.addEventListener('hashchange', handleRouteCheck);
+
+    return () => {
+      window.removeEventListener('popstate', handleRouteCheck);
+      window.removeEventListener('hashchange', handleRouteCheck);
+    };
+  }, []);
 
   // Unified scroll monitoring logic to highlight navbar targets
   useEffect(() => {
+    if (isAdminRoute) return;
     const handleScroll = () => {
       const scrollPos = window.scrollY + 200;
-      const sections = ['home', 'about', 'services', 'industries', 'process', 'innovations', 'metrics', 'rd', 'stack', 'insights', 'careers', 'contact'];
+      const sections = ['home', 'about', 'services', 'industries', 'process', 'innovations', 'metrics', 'rd', 'ai-search-suite', 'stack', 'insights', 'careers', 'contact'];
 
       for (const section of sections) {
         const element = document.getElementById(section);
@@ -52,7 +73,7 @@ export default function App() {
 
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
+  }, [isAdminRoute]);
 
   const handleNavigate = (sectionId: string) => {
     const target = document.getElementById(sectionId);
@@ -62,13 +83,34 @@ export default function App() {
     }
   };
 
+  const handleGoToAdmin = () => {
+    window.history.pushState(null, '', '/admin');
+    window.dispatchEvent(new PopStateEvent('popstate'));
+  };
+
+  const handleLeaveAdmin = () => {
+    window.history.pushState(null, '', '/');
+    window.dispatchEvent(new PopStateEvent('popstate'));
+  };
+
+  if (isAdminRoute) {
+    return (
+      <div className="bg-[#060B18] min-h-screen text-gray-100 font-sans selection:bg-[#6C3FE8]/20 selection:text-[#00D4FF]">
+        <AdminDashboard onClose={handleLeaveAdmin} />
+      </div>
+    );
+  }
+
   return (
     <div className="bg-[#FBFCFD] min-h-screen text-gray-750 font-sans selection:bg-[#4F46E5]/10 selection:text-[#4F46E5] relative">
       {/* Dynamic Canvas Background */}
       <ParticleBackground />
 
+      {/* Premium Cursor Follower Light effect */}
+      <CursorFollower />
+
       {/* Modern floating header */}
-      <Navbar activeSection={activeSection} onNavigate={handleNavigate} onAdminClick={() => setAdminOpen(true)} />
+      <Navbar activeSection={activeSection} onNavigate={handleNavigate} onAdminClick={handleGoToAdmin} />
 
       {/* Main Structural Modules mapping the Corporate Sitemap */}
       <main className="relative z-10">
@@ -96,6 +138,11 @@ export default function App() {
 
         {/* 5. Research & Development Laboratory Simulator Console */}
         <ResearchDevelopment />
+
+        {/* 5.6 Interactive AI Search, GEO & EEAT Optimization Suite */}
+        <div id="ai-search-suite">
+          <AiSearchSuite />
+        </div>
 
         {/* 6. Dynamic Tech Stack Category Layers */}
         <TechStack />
@@ -254,10 +301,6 @@ export default function App() {
           </button>
         </div>
       </footer>
-
-      {adminOpen && (
-        <AdminDashboard onClose={() => setAdminOpen(false)} />
-      )}
     </div>
   );
 }

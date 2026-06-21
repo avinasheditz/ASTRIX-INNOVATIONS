@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Menu, X, Shield, Settings } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 
 interface NavbarProps {
   activeSection: string;
@@ -27,6 +28,7 @@ export default function Navbar({ activeSection, onNavigate, onAdminClick }: Navb
     { id: 'process', label: 'Pipeline' },
     { id: 'innovations', label: 'Innovations' },
     { id: 'rd', label: 'R&D' },
+    { id: 'ai-search-suite', label: 'AI Suite' },
     { id: 'insights', label: 'Blog' },
     { id: 'careers', label: 'Careers' }
   ];
@@ -124,43 +126,51 @@ export default function Navbar({ activeSection, onNavigate, onAdminClick }: Navb
       </div>
 
       {/* Mobile Menu */}
-      {isOpen && (
-        <div className="lg:hidden bg-white/95 backdrop-blur-md border-t border-gray-100 py-4 px-3 space-y-1 mt-2 shadow-lg rounded-b-2xl">
-          {navItems.map((item) => {
-            const isActive = activeSection === item.id;
-            return (
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div 
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.25, ease: 'easeInOut' }}
+            className="lg:hidden bg-white/95 backdrop-blur-md border-t border-gray-100 py-4 px-3 space-y-1 mt-2 shadow-lg rounded-b-2xl max-h-[75vh] overflow-y-auto overflow-x-hidden scrollbar-thin scrollbar-thumb-gray-200"
+          >
+            {navItems.map((item) => {
+              const isActive = activeSection === item.id;
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => handleLinkClick(item.id)}
+                  className={`w-full text-left px-4 py-2 rounded-lg font-sans text-sm md:text-base transition-colors ${
+                    isActive
+                      ? 'bg-[#4F46E5]/5 text-[#4F46E5] font-semibold'
+                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                  }`}
+                >
+                  {item.label}
+                </button>
+              );
+            })}
+            <div className="pt-4 px-4 space-y-2">
               <button
-                key={item.id}
-                onClick={() => handleLinkClick(item.id)}
-                className={`w-full text-left px-4 py-2.5 rounded-lg font-sans text-base transition-colors ${
-                  isActive
-                    ? 'bg-[#4F46E5]/5 text-[#4F46E5] font-semibold'
-                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                }`}
+                onClick={() => handleLinkClick('contact')}
+                className="w-full py-2.5 text-center font-sans text-xs md:text-sm font-semibold bg-[#4F46E5] text-white rounded-lg shadow hover:bg-[#4338CA] transition-all cursor-pointer"
               >
-                {item.label}
+                Contact Us
               </button>
-            );
-          })}
-          <div className="pt-4 px-4 space-y-2">
-            <button
-              onClick={() => handleLinkClick('contact')}
-              className="w-full py-3 text-center font-sans text-sm font-semibold bg-[#4F46E5] text-white rounded-lg shadow hover:bg-[#4338CA] transition-all cursor-pointer"
-            >
-              Contact Us
-            </button>
-            <button
-              onClick={() => {
-                onAdminClick();
-                setIsOpen(false);
-              }}
-              className="w-full py-3 text-center font-sans text-sm font-medium bg-gray-50 text-gray-700 border border-gray-100 rounded-lg shadow hover:bg-gray-100 transition-all cursor-pointer"
-            >
-              System Admin
-            </button>
-          </div>
-        </div>
-      )}
+              <button
+                onClick={() => {
+                  onAdminClick();
+                  setIsOpen(false);
+                }}
+                className="w-full py-2.5 text-center font-sans text-xs md:text-sm font-medium bg-gray-50 text-gray-700 border border-gray-100 rounded-lg shadow hover:bg-gray-100 transition-all cursor-pointer"
+              >
+                System Admin
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </nav>
   );
 }

@@ -7,18 +7,54 @@ import { INNOVATIONS } from '../data';
 import { Innovation } from '../types';
 
 export default function Innovations() {
+  const [list, setList] = useState<Innovation[]>(INNOVATIONS);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedInno, setSelectedInno] = useState<Innovation | null>(null);
 
+  useEffect(() => {
+    const fetchProjects = async () => {
+      try {
+        const response = await fetch('/api/projects');
+        if (response.ok) {
+          const data = await response.json();
+          if (Array.isArray(data) && data.length > 0) {
+            const normalized = data.map((item: any) => ({
+              id: item.id || '',
+              title: item.title || '',
+              description: item.description || item.short_description || '',
+              industry: item.industry || 'Technology',
+              technologiesUsed: Array.isArray(item.technologiesUsed)
+                ? item.technologiesUsed
+                : Array.isArray(item.tech_stack)
+                ? item.tech_stack
+                : [],
+              imageUrl: item.imageUrl || (Array.isArray(item.images) && item.images[0]) || 'https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=800&q=80',
+              longDescription: item.longDescription || item.full_description || '',
+              keyFeatures: Array.isArray(item.keyFeatures) ? item.keyFeatures : [],
+              specs: Array.isArray(item.specs) ? item.specs : []
+            }));
+            setList(normalized);
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching projects:', err);
+      }
+    };
+    fetchProjects();
+
+    window.addEventListener('astrix-data-updated', fetchProjects);
+    return () => window.removeEventListener('astrix-data-updated', fetchProjects);
+  }, []);
+
   const handleNext = () => {
-    setCurrentIndex((prev) => (prev + 1) % INNOVATIONS.length);
+    setCurrentIndex((prev) => (prev + 1) % list.length);
   };
 
   const handlePrev = () => {
-    setCurrentIndex((prev) => (prev - 1 + INNOVATIONS.length) % INNOVATIONS.length);
+    setCurrentIndex((prev) => (prev - 1 + list.length) % list.length);
   };
 
-  const currentInno = INNOVATIONS[currentIndex];
+  const currentInno = list[currentIndex] || INNOVATIONS[0];
 
   return (
     <section id="innovations" className="py-24 relative overflow-hidden text-left border-t border-gray-100 bg-[#FAFBFD]">
@@ -53,7 +89,7 @@ export default function Innovations() {
               <ChevronLeft className="w-5 h-5" />
             </button>
             <span className="font-sans text-xs font-bold text-gray-700 bg-white px-4.5 py-3.5 rounded-xl border border-gray-200/80 shadow-sm">
-              Project 0{currentIndex + 1} &middot; 0{INNOVATIONS.length}
+              Project 0{currentIndex + 1} &middot; 0{list.length}
             </span>
             <button
               onClick={handleNext}
@@ -131,7 +167,7 @@ export default function Innovations() {
 
                   {/* Highlights parameter specifications block */}
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t border-gray-100">
-                    {currentInno.specs.map((sp, idx) => (
+                    {currentInno?.specs?.map((sp, idx) => (
                       <div key={idx} className="bg-gray-55/40 p-3 rounded-xl border border-gray-100/80 text-left">
                         <span className="font-sans text-[9px] text-gray-400 uppercase block tracking-wider mb-1 font-semibold">
                           {sp.label}
@@ -149,7 +185,7 @@ export default function Innovations() {
                       ENGINEERING FRAMEWORK STACK
                     </span>
                     <div className="flex flex-wrap gap-1.5">
-                      {currentInno.technologiesUsed.map((tech) => (
+                      {currentInno?.technologiesUsed?.map((tech) => (
                         <span key={tech} className="bg-gray-50 border border-gray-100 px-3 py-1 rounded text-xs text-gray-600 font-sans font-medium">
                           {tech}
                         </span>
@@ -225,14 +261,14 @@ export default function Innovations() {
                 </p>
               </div>
 
-              {/* Specs parameters & performance grids */}
+               {/* Specs parameters & performance grids */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-4 border-t border-gray-100">
                 
                 {/* Performance highlights */}
                 <div className="space-y-4">
                   <h4 className="font-sans font-bold text-xs text-gray-800 tracking-wide uppercase">[System Highlights]</h4>
                   <ul className="space-y-3">
-                    {selectedInno.keyFeatures.map((feat, idx) => (
+                    {selectedInno?.keyFeatures?.map((feat, idx) => (
                       <li key={idx} className="flex items-start gap-2.5 text-xs text-gray-500 font-medium">
                         <CheckSquare className="w-4 h-4 mt-0.5 text-[#4F46E5] shrink-0" />
                         <span>{feat}</span>
@@ -245,7 +281,7 @@ export default function Innovations() {
                 <div className="space-y-4">
                   <h4 className="font-sans font-bold text-xs text-gray-800 tracking-wide uppercase">[Calibrated Specs]</h4>
                   <div className="rounded-2xl border border-gray-100 overflow-hidden text-xs bg-gray-50/50">
-                    {selectedInno.specs.map((spec, sidx) => (
+                    {selectedInno?.specs?.map((spec, sidx) => (
                       <div
                         key={sidx}
                         className={`flex justify-between p-3.5 ${

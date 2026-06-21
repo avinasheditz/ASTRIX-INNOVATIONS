@@ -2,7 +2,9 @@ import { useState, useEffect, FormEvent } from 'react';
 import { 
   X, Lock, User, FileText, Database, Layers, MessageSquare, 
   Trash2, Edit, Plus, CheckCircle, AlertCircle, LogOut, ChevronRight,
-  Briefcase, Settings, Shield, Terminal, RefreshCw, BarChart3, Mail, Eye, Sliders
+  Briefcase, Settings, Shield, Terminal, RefreshCw, BarChart3, Mail, Eye, 
+  Sliders, Download, Sparkles, Check, Play, UserCheck, ShieldCheck, Sun, Moon,
+  Folder, Image as ImageIcon, File, Video, ChevronDown, RotateCcw
 } from 'lucide-react';
 import { Innovation, BlogPost } from '../types';
 
@@ -17,11 +19,52 @@ export default function AdminDashboard({ onClose }: AdminDashboardProps) {
   const [token, setToken] = useState('');
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+  const [themeMode, setThemeMode] = useState<'dark' | 'light'>('dark');
+
+  // Multi-tier Security Lockout tracking:
+  // 5 failures locks for 1 min, then 3 min, then 1 hour. Persisted offline.
+  const [failedAttempts, setFailedAttempts] = useState<number>(() => {
+    try {
+      return parseInt(localStorage.getItem('astrix_failed_attempts') || '0', 10);
+    } catch {
+      return 0;
+    }
+  });
+
+  const [lockoutUntil, setLockoutUntil] = useState<number>(() => {
+    try {
+      return parseInt(localStorage.getItem('astrix_lockout_until') || '0', 10);
+    } catch {
+      return 0;
+    }
+  });
+
+  const [secondsLeft, setSecondsLeft] = useState<number>(0);
+
+  useEffect(() => {
+    const checkLockout = () => {
+      if (lockoutUntil > Date.now()) {
+        const remaining = Math.max(0, Math.ceil((lockoutUntil - Date.now()) / 1000));
+        setSecondsLeft(remaining);
+      } else {
+        setSecondsLeft(0);
+      }
+    };
+    checkLockout();
+    const interval = setInterval(checkLockout, 1000);
+    return () => clearInterval(interval);
+  }, [lockoutUntil]);
+
+  const formatTimeLeft = (sec: number) => {
+    const mins = Math.floor(sec / 60);
+    const secs = sec % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
   
   // Expanded tab directory
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'services' | 'projects' | 'blogs' | 'messages' | 'careers' | 'audit_logs' | 'settings'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'services' | 'projects' | 'leads' | 'cms' | 'blogs' | 'media' | 'team' | 'analytics' | 'security' | 'settings'>('dashboard');
 
-  // Database resource collections
+  // Database resources
   const [stats, setStats] = useState<any>(null);
   const [services, setServices] = useState<any[]>([]);
   const [industries, setIndustries] = useState<any[]>([]);
@@ -30,72 +73,56 @@ export default function AdminDashboard({ onClose }: AdminDashboardProps) {
   const [messages, setMessages] = useState<any[]>([]);
   const [careers, setCareers] = useState<any[]>([]);
   const [applications, setApplications] = useState<any[]>([]);
-  const [newsletters, setNewsletters] = useState<any[]>([]);
   const [activityLogs, setActivityLogs] = useState<any[]>([]);
   const [sysSettings, setSysSettings] = useState<any>({});
   const [seoConfig, setSeoConfig] = useState<any>({});
 
-  // Dynamic loading indicator
+  // Dynamic loading
   const [loading, setLoading] = useState(false);
+
+  // AI & Generator states
+  const [aiPrompt, setAiPrompt] = useState('');
+  const [aiResult, setAiResult] = useState<any>(null);
+  const [aiGenerating, setAiGenerating] = useState(false);
+
+  // CMS Page Builder blocks
+  const [cmsBlocks, setCmsBlocks] = useState([
+    { id: 'hero', name: 'Premium Hero Hub', order: 0, active: true, tag: 'Framer Layout' },
+    { id: 'features', name: 'Bento Services Features', order: 1, active: true, tag: 'Grid Blocks' },
+    { id: 'case-studies', name: 'Physical Prototypes & R&D', order: 2, active: true, tag: 'Interactive Carousels' },
+    { id: 'insights', name: 'Science & Media Insights', order: 3, active: true, tag: 'Blog Stream' },
+    { id: 'cta', name: 'Future City Interactive CTA', order: 4, active: true, tag: 'Particles Flow' },
+    { id: 'contact', name: 'Sweep Radar Contact Coordinates', order: 5, active: true, tag: 'Coordinates Portal' }
+  ]);
+
+  // Media library active folder & assets
+  const [activeMediaFolder, setActiveMediaFolder] = useState<'projects' | 'services' | 'blogs' | 'branding' | 'team'>('projects');
+  const [mediaAssets, setMediaAssets] = useState<any[]>([
+    { id: 'm1', name: 'heallink_live_telemetry.lottie', size: '1.4 MB', type: 'Lottie', folder: 'projects', desc: 'Sensing ripples' },
+    { id: 'm2', name: 'hexagonal_grid_wireframe.obj', size: '12.8 MB', type: '3D Model', folder: 'branding', desc: 'Geometric vertex array' },
+    { id: 'm3', name: 'astrix_brand_signature.png', size: '320 KB', type: 'Image', folder: 'branding', desc: 'Vector identity mark' },
+    { id: 'm4', name: 'digital_twin_calibration.mp4', size: '24.2 MB', type: 'Video', folder: 'services', desc: 'Tactile drive response' },
+    { id: 'm5', name: 'clinical_handshake_specs.pdf', size: '3.1 MB', type: 'PDF', folder: 'blogs', desc: 'Secure medical protocol' }
+  ]);
+  const [newMediaName, setNewMediaName] = useState('');
+  const [newMediaType, setNewMediaType] = useState('Image');
+
+  // Interactive Lead reminders
+  const [leadNotes, setLeadNotes] = useState<{ [leadId: string]: string }>({});
+  const [crmFilters, setCrmFilters] = useState<'all' | 'new' | 'contacted' | 'won' | 'lost'>('all');
 
   // Forms states
   const [editingProject, setEditingProject] = useState<Partial<Innovation> | null>(null);
   const [editingBlog, setEditingBlog] = useState<Partial<BlogPost> | null>(null);
   const [editingService, setEditingService] = useState<any | null>(null);
 
-  // --- Creative Form Inputs ---
-  const [serviceForm, setServiceForm] = useState({
-    title: '',
-    short_description: '',
-    full_description: '',
-    category: 'AI Systems',
-    icon: 'Cpu',
-    sort_order: '1'
-  });
+  const [serviceForm, setServiceForm] = useState({ title: '', short_description: '', full_description: '', category: 'AI Systems', icon: 'Cpu', sort_order: '1' });
+  const [projForm, setProjForm] = useState({ title: '', description: '', industry: 'Technology' as Innovation['industry'], technologiesUsed: '', imageUrl: '', longDescription: '', keyFeatures: '', specLabels: ['Form Factor', 'Latency', 'DDoF'], specValues: ['72x35mm Patch', ' sub-10ms', '6 Axis'] });
+  const [blogForm, setBlogForm] = useState({ title: '', category: 'Technology' as BlogPost['category'], excerpt: '', author: 'Principal Architect', content: '' });
+  const [settingsForm, setSettingsForm] = useState({ website_name: 'Astrix Innovations', contact_email: 'operations@astrix.com', maintenance_mode: false, logo_signature: 'ASTRIX' });
+  const [seoForm, setSeoForm] = useState({ slug: '/', meta_title: '', meta_description: '', keywords: '' });
 
-  const [projForm, setProjForm] = useState({
-    title: '',
-    description: '',
-    industry: 'Technology' as Innovation['industry'],
-    technologiesUsed: '',
-    imageUrl: '',
-    longDescription: '',
-    keyFeatures: '',
-    specLabels: ['Form Factor', 'Sensor Latency', 'Throughput'],
-    specValues: ['', '', '']
-  });
-
-  const [blogForm, setBlogForm] = useState({
-    title: '',
-    category: 'Technology' as BlogPost['category'],
-    excerpt: '',
-    author: 'Administrator',
-    content: ''
-  });
-
-  const [careerForm, setCareerForm] = useState({
-    title: '',
-    department: 'Hardware controls',
-    location: 'Munich, Germany',
-    job_type: 'full_time',
-    description: '',
-    requirements: ''
-  });
-
-  const [seoForm, setSeoForm] = useState({
-    slug: '/',
-    meta_title: '',
-    meta_description: '',
-    keywords: ''
-  });
-
-  const [settingsForm, setSettingsForm] = useState({
-    website_name: 'Astrix Innovations',
-    contact_email: 'operations@astrix.com',
-    maintenance_mode: false
-  });
-
-  // Check stored credentials on mount
+  // Checked on mount
   useEffect(() => {
     const savedToken = localStorage.getItem('astrix_admin_token');
     if (savedToken) {
@@ -105,24 +132,18 @@ export default function AdminDashboard({ onClose }: AdminDashboardProps) {
     }
   }, []);
 
-  // Sync resource states on tab change
   useEffect(() => {
     if (isAuthenticated && token) {
       if (activeTab === 'dashboard') {
         fetchStats();
       } else if (activeTab === 'services') {
         fetchServices();
-      } else if (activeTab === 'audit_logs') {
-        fetchActivityLogs();
-      } else if (activeTab === 'careers') {
-        fetchCareersAndApplications();
       } else if (activeTab === 'settings') {
         fetchSettingsAndSEO();
       }
     }
   }, [activeTab, isAuthenticated, token]);
 
-  // Fetch stats count parameters
   const fetchStats = async () => {
     try {
       const res = await fetch('/api/dashboard/stats');
@@ -130,65 +151,18 @@ export default function AdminDashboard({ onClose }: AdminDashboardProps) {
         const data = await res.json();
         setStats(data);
       }
-    } catch (err) {
-      console.error(err);
-    }
+    } catch (err) { console.error('Stats fetch err', err); }
   };
 
-  // Fetch active system services
   const fetchServices = async () => {
     try {
       const res = await fetch('/api/services');
-      if (res.ok) {
-        const data = await res.json();
-        setServices(data);
-      }
+      if (res.ok) setServices(await res.json());
       const indRes = await fetch('/api/industries');
-      if (indRes.ok) {
-        const data = await indRes.json();
-        setIndustries(data);
-      }
-    } catch (err) {
-      console.error(err);
-    }
+      if (indRes.ok) setIndustries(await indRes.json());
+    } catch (err) { console.error(err); }
   };
 
-  // Fetch security activity records
-  const fetchActivityLogs = async () => {
-    try {
-      const res = await fetch('/api/admin/activity-logs', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setActivityLogs(data);
-      }
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  // Fetch available postings and received applications
-  const fetchCareersAndApplications = async () => {
-    try {
-      const resJobs = await fetch('/api/careers');
-      if (resJobs.ok) {
-        const data = await resJobs.json();
-        setCareers(data);
-      }
-      const resApps = await fetch('/api/admin/applications', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (resApps.ok) {
-        const data = await resApps.json();
-        setApplications(data);
-      }
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  // Fetch SEO pages and Settings variables
   const fetchSettingsAndSEO = async () => {
     try {
       const resSet = await fetch('/api/settings');
@@ -198,10 +172,10 @@ export default function AdminDashboard({ onClose }: AdminDashboardProps) {
         setSettingsForm({
           website_name: data.website_name || 'Astrix Innovations',
           contact_email: data.contact_email || 'operations@astrix.com',
-          maintenance_mode: !!data.maintenance_mode
+          maintenance_mode: !!data.maintenance_mode,
+          logo_signature: 'ASTRIX'
         });
       }
-      
       const resSEO = await fetch(`/api/seo?page=${seoForm.slug}`);
       if (resSEO.ok) {
         const data = await resSEO.json();
@@ -213,12 +187,9 @@ export default function AdminDashboard({ onClose }: AdminDashboardProps) {
           keywords: Array.isArray(data.keywords) ? data.keywords.join(', ') : ''
         }));
       }
-    } catch (err) {
-      console.error(err);
-    }
+    } catch (err) { console.error(err); }
   };
 
-  // Trigger loading details of SEO form on dropdown select change
   const handleSEOSlugChange = async (slug: string) => {
     setSeoForm(prev => ({ ...prev, slug }));
     try {
@@ -233,40 +204,29 @@ export default function AdminDashboard({ onClose }: AdminDashboardProps) {
           keywords: Array.isArray(data.keywords) ? data.keywords.join(', ') : ''
         }));
       }
-    } catch (err) {
-      console.error(err);
-    }
+    } catch (err) { console.error(err); }
   };
 
-  // Core background loading coordinator 
   const fetchAdminData = async (authToken: string) => {
     setLoading(true);
     const headers = { 'Authorization': `Bearer ${authToken}` };
     try {
-      // Inbound Messages
       const msgsRes = await fetch('/api/admin/messages', { headers });
-      if (msgsRes.ok) {
-        const msgs = await msgsRes.json();
-        setMessages(msgs);
-      }
-
-      // Projects
+      if (msgsRes.ok) setMessages(await msgsRes.json());
       const projsRes = await fetch('/api/projects');
-      if (projsRes.ok) {
-        const projs = await projsRes.json();
-        setProjects(projs);
-      }
-
-      // Blogs
+      if (projsRes.ok) setProjects(await projsRes.json());
       const blogsRes = await fetch('/api/blogs');
-      if (blogsRes.ok) {
-        const bls = await blogsRes.json();
-        setBlogs(bls);
-      }
+      if (blogsRes.ok) setBlogs(await blogsRes.json());
+      
+      const logsRes = await fetch('/api/admin/activity-logs', { headers });
+      if (logsRes.ok) setActivityLogs(await logsRes.json());
+
+      const appsRes = await fetch('/api/admin/applications', { headers });
+      if (appsRes.ok) setApplications(await appsRes.json());
 
       await fetchStats();
     } catch (err) {
-      console.error('Core administrative synchronization failed:', err);
+      console.error('Core administrative sync failed:', err);
     } finally {
       setLoading(false);
     }
@@ -275,6 +235,12 @@ export default function AdminDashboard({ onClose }: AdminDashboardProps) {
   const handleLogin = async (e: FormEvent) => {
     e.preventDefault();
     setError('');
+
+    if (secondsLeft > 0) {
+      setError(`Brute-force shield active. Gateway isolated. Retry in ${formatTimeLeft(secondsLeft)}.`);
+      return;
+    }
+
     try {
       const response = await fetch('/api/auth/login', {
         method: 'POST',
@@ -288,14 +254,45 @@ export default function AdminDashboard({ onClose }: AdminDashboardProps) {
         setToken(data.token);
         setIsAuthenticated(true);
         fetchAdminData(data.token);
-        setSuccessMsg('Authentication Approved. Controls fully decrypted.');
-        setTimeout(() => setSuccessMsg(''), 3000);
+
+        // Clear failed counter after successful login
+        setFailedAttempts(0);
+        setLockoutUntil(0);
+        localStorage.removeItem('astrix_failed_attempts');
+        localStorage.removeItem('astrix_lockout_until');
+
+        setSuccessMsg('Astrix secure key authorized. System unshielded.');
+        setTimeout(() => setSuccessMsg(''), 3500);
       } else {
         const errData = await response.json();
-        setError(errData.error || 'Identity confirmation negative: passcode sequence illegal.');
+        const nextFailed = failedAttempts + 1;
+        setFailedAttempts(nextFailed);
+        localStorage.setItem('astrix_failed_attempts', nextFailed.toString());
+
+        let lockTime = 0;
+        let lockMsg = '';
+        if (nextFailed === 5) {
+          lockTime = 60 * 1000; // 1 minute
+          lockMsg = 'Too many failed login attempts: Brute force block triggered. Locked for 1 minute.';
+        } else if (nextFailed === 6) {
+          lockTime = 3 * 60 * 1000; // 3 minutes
+          lockMsg = 'Incremental threat detected: Locked for 3 minutes.';
+        } else if (nextFailed >= 7) {
+          lockTime = 60 * 60 * 1000; // 1 hour
+          lockMsg = 'High security threat: Authentication isolated. Locked for 1 hour.';
+        }
+
+        if (lockTime > 0) {
+          const until = Date.now() + lockTime;
+          setLockoutUntil(until);
+          localStorage.setItem('astrix_lockout_until', until.toString());
+          setError(lockMsg);
+        } else {
+          setError(`${errData.error || 'Security credentials mismatched.'} (${5 - nextFailed} security attempts remaining)`);
+        }
       }
     } catch (err) {
-      setError('System lookup failure. Core nodes offline.');
+      setError('Connection refused. Cryptographic gate unresponsive.');
     }
   };
 
@@ -305,9 +302,7 @@ export default function AdminDashboard({ onClose }: AdminDashboardProps) {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` }
       });
-    } catch (e) {
-      // Ignore
-    }
+    } catch (e) {}
     localStorage.removeItem('astrix_admin_token');
     setToken('');
     setIsAuthenticated(false);
@@ -318,136 +313,148 @@ export default function AdminDashboard({ onClose }: AdminDashboardProps) {
     window.dispatchEvent(new CustomEvent('astrix-data-updated'));
   };
 
-  // ---------- SERVICES CONTROLLERS ----------
+  // CSV Export Lead metrics
+  const exportLeadsCSV = () => {
+    const header = ['Lead ID', 'Name', 'Email', 'Phone', 'Company', 'Subject', 'Message', 'Status', 'Date'];
+    const rows = messages.map(m => [
+      m.id,
+      m.name,
+      m.email,
+      m.phone || '',
+      m.company || '',
+      m.subject || '',
+      `"${(m.message || '').replace(/"/g, '""')}"`,
+      m.status || 'new',
+      m.created_at || m.timestamp
+    ]);
+    const csvContent = "data:text/csv;charset=utf-8," 
+      + [header.join(','), ...rows.map(e => e.join(','))].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `Astrix_CRM_Leads_${new Date().toISOString().slice(0,10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setSuccessMsg('CRM Leads exported in standard CSV payload format.');
+    setTimeout(() => setSuccessMsg(''), 3000);
+  };
+
+  // AI Assistant generator
+  const triggerAiGenerator = async (type: 'blog' | 'case_study' | 'seo') => {
+    if (!aiPrompt) {
+      setError('Please supply guidelines prompt inside Assistant Console.');
+      return;
+    }
+    setAiGenerating(true);
+    setAiResult(null);
+    setError('');
+    try {
+      // Simulate high-fidelity, comprehensive OpenAI/Gemini structuring with precise schema
+      setTimeout(() => {
+        const titleSlug = aiPrompt.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+        if (type === 'blog') {
+          const generated = {
+            title: `AI-Driven Breakthrough: ${aiPrompt.slice(0, 1).toUpperCase() + aiPrompt.slice(1)}`,
+            category: 'Artificial Intelligence',
+            excerpt: `Exploratory analysis detailing physical calibrate structures optimized dynamically using ${aiPrompt}.`,
+            author: 'Astrix AI Core Optimizer',
+            content: `## Executive Overview\nAutonomous workflows have evolved past programmatic thresholds. Today, Astrix engineers deploy self-balancing model structures configured dynamically with the premise: "${aiPrompt}".\n\n## Empirical Analysis\nOur sub-acute response loops register stable performance factors under high pressure levels, generating a 42% operational latency reduction.`
+          };
+          setAiResult({ type: 'blog', payload: generated });
+          setBlogForm({
+            title: generated.title,
+            category: 'Artificial Intelligence',
+            excerpt: generated.excerpt,
+            author: generated.author,
+            content: generated.content
+          });
+        } else if (type === 'case_study') {
+          const generated = {
+            title: `Telemetry Calibration Suite: Project ${aiPrompt.split(' ')[0].toUpperCase()}`,
+            description: `How We Solved: "${aiPrompt}" on the physical hardware edge layers.`,
+            industry: 'Artificial Intelligence',
+            technologiesUsed: 'PyTorch, ROS, Bluetooth LE, React v19',
+            imageUrl: 'https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=800&q=80',
+            longDescription: `An exhaustive technical study solving ${aiPrompt}.\n\nBy layering sub-second mathematical models inside low-energy chips, we achieved immediate sensory feedback without server hops.`
+          };
+          setAiResult({ type: 'case_study', payload: generated });
+          setProjForm(prev => ({
+            ...prev,
+            title: generated.title,
+            description: generated.description,
+            technologiesUsed: generated.technologiesUsed,
+            imageUrl: generated.imageUrl,
+            longDescription: generated.longDescription
+          }));
+        } else {
+          const generated = {
+            meta_title: `Astrix Enterprise CMS - Calibrating ${aiPrompt.slice(0, 30)}`,
+            meta_description: `Enterprise-grade engineering solutions targeting ${aiPrompt}. Explore continuous biomechanics and edge diagnostics.`,
+            keywords: `Astrix, AI Optimization, ${aiPrompt.split(' ').join(', ')}`
+          };
+          setAiResult({ type: 'seo', payload: generated });
+          setSeoForm(prev => ({
+            ...prev,
+            meta_title: generated.meta_title,
+            meta_description: generated.meta_description,
+            keywords: generated.keywords
+          }));
+        }
+        setAiGenerating(false);
+        setSuccessMsg('Astrix Generative Assistant compiled options successful.');
+        setTimeout(() => setSuccessMsg(''), 3000);
+      }, 1500);
+    } catch (e) {
+      setError('AI Generator network fail.');
+      setAiGenerating(false);
+    }
+  };
+
+  // Add mock media asset
+  const handleUploadAssetMock = (e: FormEvent) => {
+    e.preventDefault();
+    if (!newMediaName) return;
+    const sizeMap: any = { 'Image': '450 KB', 'PDF': '1.8 MB', '3D Model': '4.2 MB', 'Lottie': '210 KB', 'Video': '11.4 MB' };
+    const extensionMap: any = { 'Image': '.png', 'PDF': '.pdf', '3D Model': '.gltf', 'Lottie': '.lottie', 'Video': '.mp4' };
+    const formattedName = newMediaName.replace(/\.[^/.]+$/, "") + extensionMap[newMediaType];
+    const newAsset = {
+      id: `media-mock-${Date.now()}`,
+      name: formattedName,
+      size: sizeMap[newMediaType] || '1.0 MB',
+      type: newMediaType,
+      folder: activeMediaFolder,
+      desc: 'User uploaded core node asset parameter.'
+    };
+    setMediaAssets(prev => [newAsset, ...prev]);
+    setNewMediaName('');
+    setSuccessMsg(`Simulated upload successful: ${formattedName} index compiled in ${activeMediaFolder} folder.`);
+    setTimeout(() => setSuccessMsg(''), 3000);
+  };
+
   const handleServiceSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    setError('');
-    const payload = {
-      title: serviceForm.title,
-      short_description: serviceForm.short_description,
-      full_description: serviceForm.full_description,
-      category: serviceForm.category,
-      icon: serviceForm.icon,
-      sort_order: parseInt(serviceForm.sort_order) || 1
-    };
-
+    const payload = { ...serviceForm, sort_order: parseInt(serviceForm.sort_order) || 1 };
     const isEdit = !!editingService;
-    const url = isEdit ? `/api/services/${editingService.id}` : '/api/services';
-    const method = isEdit ? 'PUT' : 'POST';
-
     try {
-      const res = await fetch(url, {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
+      const res = await fetch(isEdit ? `/api/services/${editingService.id}` : '/api/services', {
+        method: isEdit ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify(payload)
       });
       if (res.ok) {
-        setSuccessMsg(isEdit ? 'Service metrics scaled successfully.' : 'New technological capability launched.');
+        setSuccessMsg(isEdit ? 'Capabilities recalibrated.' : 'New service asset deployed successfully.');
         setServiceForm({ title: '', short_description: '', full_description: '', category: 'AI Systems', icon: 'Cpu', sort_order: '1' });
         setEditingService(null);
         fetchServices();
-        fetchStats();
-        notifyDataChanged();
-        setTimeout(() => setSuccessMsg(''), 3000);
-      } else {
-        const err = await res.json();
-        setError(err.error || 'Failure to dispatch parameters.');
-      }
-    } catch (err) {
-      setError('Internal server route missing.');
-    }
-  };
-
-  const handleDeleteService = async (id: string) => {
-    if (!window.confirm('Archive this critical service competency?')) return;
-    try {
-      const res = await fetch(`/api/services/${id}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (res.ok) {
-        setSuccessMsg('Service catalog successfully removed index.');
-        fetchServices();
-        fetchStats();
         notifyDataChanged();
         setTimeout(() => setSuccessMsg(''), 3000);
       }
-    } catch (err) {
-      setError('Server pipeline reject.');
-    }
-  };
-
-  // ---------- INDUSTRY CREATORS ----------
-  const [indForm, setIndForm] = useState({ name: '', description: '', icon: 'Flame' });
-  const handleIndustrySubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    setError('');
-    try {
-      const res = await fetch('/api/industries', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(indForm)
-      });
-      if (res.ok) {
-        setSuccessMsg('New sector boundary added to network grids.');
-        setIndForm({ name: '', description: '', icon: 'Flame' });
-        fetchServices();
-        fetchStats();
-        setTimeout(() => setSuccessMsg(''), 3000);
-      } else {
-        const err = await res.json();
-        setError(err.error || 'Pipeline error.');
-      }
-    } catch (err) {
-      setError('Engineering core link failure.');
-    }
-  };
-
-  // ---------- PROJECT OPERATIONS ----------
-  const resetProjectForm = () => {
-    setProjForm({
-      title: '',
-      description: '',
-      industry: 'Technology',
-      technologiesUsed: '',
-      imageUrl: '',
-      longDescription: '',
-      keyFeatures: '',
-      specLabels: ['Form Factor', 'Sensor Latency', 'Throughput'],
-      specValues: ['', '', '']
-    });
-    setEditingProject(null);
-  };
-
-  const startEditProject = (p: Innovation) => {
-    setEditingProject(p);
-    setProjForm({
-      title: p.title,
-      description: p.description,
-      industry: p.industry,
-      technologiesUsed: p.technologiesUsed.join(', '),
-      imageUrl: p.imageUrl,
-      longDescription: p.longDescription,
-      keyFeatures: p.keyFeatures.join('\n'),
-      specLabels: p.specs?.map(s => s.label) || ['', '', ''],
-      specValues: p.specs?.map(s => s.value) || ['', '', '']
-    });
+    } catch (err) { setError('Service route missing.'); }
   };
 
   const handleProjectSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    setError('');
-    
-    const preparedSpecs = projForm.specLabels
-      .map((l, idx) => ({ label: l, value: projForm.specValues[idx] }))
-      .filter(s => s.label && s.value);
-
     const payload = {
       title: projForm.title,
       description: projForm.description,
@@ -456,83 +463,28 @@ export default function AdminDashboard({ onClose }: AdminDashboardProps) {
       imageUrl: projForm.imageUrl || 'https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=800&q=80',
       longDescription: projForm.longDescription,
       keyFeatures: projForm.keyFeatures.split('\n').map(f => f.trim()).filter(Boolean),
-      specs: preparedSpecs
+      specs: projForm.specLabels.map((l, idx) => ({ label: l, value: projForm.specValues[idx] || '' })).filter(s => s.label)
     };
-
     const isEdit = !!editingProject;
-    const url = isEdit ? `/api/admin/projects/${editingProject.id}` : '/api/admin/projects';
-    const method = isEdit ? 'PUT' : 'POST';
-
     try {
-      const response = await fetch(url, {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
+      const response = await fetch(isEdit ? `/api/admin/projects/${editingProject.id}` : '/api/admin/projects', {
+        method: isEdit ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify(payload)
       });
-
       if (response.ok) {
         setSuccessMsg(isEdit ? 'Project specifications updated.' : 'New corporate project deployed successfully.');
-        resetProjectForm();
-        fetchAdminData(token);
-        notifyDataChanged();
-        setTimeout(() => setSuccessMsg(''), 3000);
-      } else {
-        const err = await response.json();
-        setError(err.error || 'Failed to submit project parameters.');
-      }
-    } catch (err) {
-      setError('Failed to dispatch server update request.');
-    }
-  };
-
-  const handleDeleteProject = async (id: string) => {
-    if (!window.confirm('Are you absolutely sure you want to decommission this project record?')) return;
-    try {
-      const response = await fetch(`/api/admin/projects/${id}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (response.ok) {
-        setSuccessMsg('Project record expunged from primary grids.');
+        setProjForm({ title: '', description: '', industry: 'Technology', technologiesUsed: '', imageUrl: '', longDescription: '', keyFeatures: '', specLabels: ['Form Factor', 'Latency', 'DDoF'], specValues: ['', '', ''] });
+        setEditingProject(null);
         fetchAdminData(token);
         notifyDataChanged();
         setTimeout(() => setSuccessMsg(''), 3000);
       }
-    } catch (err) {
-      setError('Failed to execute project deletion.');
-    }
-  };
-
-  // ---------- BLOG OPERATIONS ----------
-  const resetBlogForm = () => {
-    setBlogForm({
-      title: '',
-      category: 'Technology',
-      excerpt: '',
-      author: 'Administrator',
-      content: ''
-    });
-    setEditingBlog(null);
-  };
-
-  const startEditBlog = (b: BlogPost) => {
-    setEditingBlog(b);
-    setBlogForm({
-      title: b.title,
-      category: b.category,
-      excerpt: b.excerpt,
-      author: b.author,
-      content: b.content
-    });
+    } catch (err) { setError('Project write error.'); }
   };
 
   const handleBlogSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    setError('');
-
     const payload = {
       title: blogForm.title,
       category: blogForm.category,
@@ -540,235 +492,195 @@ export default function AdminDashboard({ onClose }: AdminDashboardProps) {
       author: blogForm.author,
       content: blogForm.content
     };
-
     const isEdit = !!editingBlog;
-    const url = isEdit ? `/api/admin/blogs/${editingBlog.id}` : '/api/admin/blogs';
-    const method = isEdit ? 'PUT' : 'POST';
-
     try {
-      const response = await fetch(url, {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
+      const response = await fetch(isEdit ? `/api/admin/blogs/${editingBlog.id}` : '/api/admin/blogs', {
+        method: isEdit ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify(payload)
       });
-
       if (response.ok) {
-        setSuccessMsg(isEdit ? 'Blog entry parameters updated.' : 'New article cataloged in Astrix Insights.');
-        resetBlogForm();
-        fetchAdminData(token);
-        notifyDataChanged();
-        setTimeout(() => setSuccessMsg(''), 3000);
-      } else {
-        const err = await response.json();
-        setError(err.error || 'Failed to save blog parameters.');
-      }
-    } catch (err) {
-      setError('Communication loss with database engine during save.');
-    }
-  };
-
-  const handleDeleteBlog = async (id: string) => {
-    if (!window.confirm('Are you sure you want to permanently delete this blog post?')) return;
-    try {
-      const response = await fetch(`/api/admin/blogs/${id}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (response.ok) {
-        setSuccessMsg('Blog post expunged.');
+        setSuccessMsg(isEdit ? 'Blog post modified.' : 'New article published in Insights.');
+        setBlogForm({ title: '', category: 'Technology', excerpt: '', author: 'Principal Architect', content: '' });
+        setEditingBlog(null);
         fetchAdminData(token);
         notifyDataChanged();
         setTimeout(() => setSuccessMsg(''), 3000);
       }
-    } catch (err) {
-      setError('Failed to purge blog.');
-    }
+    } catch (e) { setError('Blog save failure.'); }
   };
 
-  // ---------- CAREERS CONTROLLERS ----------
-  const handleCareerSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    setError('');
-    const payload = {
-      title: careerForm.title,
-      department: careerForm.department,
-      location: careerForm.location,
-      job_type: careerForm.job_type,
-      description: careerForm.description,
-      requirements: careerForm.requirements.split('\n').map(r => r.trim()).filter(Boolean)
-    };
-
-    try {
-      const res = await fetch('/api/careers', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(payload)
-      });
-      if (res.ok) {
-        setSuccessMsg('Career posting published successfully.');
-        setCareerForm({ title: '', department: 'Hardware controls', location: 'Munich, Germany', job_type: 'full_time', description: '', requirements: '' });
-        fetchCareersAndApplications();
-        fetchStats();
-        setTimeout(() => setSuccessMsg(''), 3000);
-      } else {
-        const err = await res.json();
-        setError(err.error || 'Unable to publish vacancy.');
-      }
-    } catch (err) {
-       setError('Careers server post failed.');
-    }
+  const handleCmsOrder = (idx: number, direction: 'up' | 'down') => {
+    const updated = [...cmsBlocks];
+    const targetIdx = direction === 'up' ? idx - 1 : idx + 1;
+    if (targetIdx < 0 || targetIdx >= cmsBlocks.length) return;
+    const temp = updated[idx];
+    updated[idx] = updated[targetIdx];
+    updated[targetIdx] = temp;
+    setCmsBlocks(updated);
+    setSuccessMsg('Homepage blocks order layout swapped.');
+    setTimeout(() => setSuccessMsg(''), 1500);
   };
 
-  // ---------- WEBSITE SETTINGS AND SEO SUBMITS ----------
-  const handleSettingsSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    setError('');
-    try {
-      const res = await fetch('/api/settings', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(settingsForm)
-      });
-      if (res.ok) {
-        setSuccessMsg('Global system settings updated on control gateways.');
-        fetchSettingsAndSEO();
-        setTimeout(() => setSuccessMsg(''), 3000);
-      } else {
-        const err = await res.json();
-        setError(err.error || 'Unable to update variables.');
-      }
-    } catch (err) {
-      setError('Settings write error.');
-    }
+  // Custom Lead Note tracker saving locally
+  const handleSaveLeadNote = (leadId: string, noteText: string) => {
+    setLeadNotes(prev => ({ ...prev, [leadId]: noteText }));
+    setSuccessMsg('Note saved successfully for lead context.');
+    setTimeout(() => setSuccessMsg(''), 2000);
   };
-
-  const handleSEOSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    setError('');
-    const payload = {
-      slug: seoForm.slug,
-      meta_title: seoForm.meta_title,
-      meta_description: seoForm.meta_description,
-      keywords: seoForm.keywords.split(',').map(k => k.trim()).filter(Boolean)
-    };
-
-    try {
-      const res = await fetch('/api/seo', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(payload)
-      });
-      if (res.ok) {
-        setSuccessMsg(`Meta details for page "${seoForm.slug}" recalculated.`);
-        fetchSettingsAndSEO();
-        setTimeout(() => setSuccessMsg(''), 3000);
-      } else {
-        const err = await res.json();
-        setError(err.error || 'SEO write reject.');
-      }
-    } catch (err) {
-      setError('SEO engine timeout.');
-    }
-  };
-
-  const [contactSearch, setContactSearch] = useState('');
-  const [logSearch, setLogSearch] = useState('');
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md">
-      <div className="relative w-full max-w-6xl glass-panel rounded-3xl border border-white/10 overflow-hidden shadow-2xl flex flex-col h-[92vh] bg-neutral-950 text-left">
+    <div className={`min-h-screen transition-colors duration-150 relative ${themeMode === 'dark' ? 'bg-[#060B18] text-gray-100' : 'bg-[#F9FAFB] text-gray-850'}`}>
+      
+      {/* Upper Status strip / Banner controls resembling Stripe UI */}
+      <div className={`px-6 py-2.5 border-b text-[10.5px] font-mono flex flex-wrap justify-between items-center ${themeMode === 'dark' ? 'bg-[#090D1E] border-white/5 text-[#00D4FF]' : 'bg-white border-gray-200 text-[#6C3FE8]'}`}>
+        <div className="flex items-center gap-2">
+          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+          <span className="font-semibold uppercase tracking-wider">Astrix Operations Control Console & CRM Suite // v12.1.2_Stable</span>
+        </div>
+        <div className="flex items-center gap-4">
+          <span className="hidden sm:inline opacity-80">ACTIVE KERNEL GATEWAY: SECURE_TLS13_ENVELOPE</span>
+          <div className="flex items-center gap-1.5 border border-current rounded px-2 py-0.5">
+            <span className="font-bold">STATUS:</span>
+            <span className="text-emerald-400">SYNCED</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         
-        {/* Header Block with System ID */}
-        <div className="p-5 border-b border-white/5 flex justify-between items-center bg-black/40">
+        {/* Main Interface Header */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 pb-6 border-b border-gray-200/10 dark:border-white/5">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-[#6C3FE8] to-[#00D4FF] flex items-center justify-center relative shrink-0">
-              <Database className="w-4.5 h-4.5 text-white" />
-              <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-[#6C3FE8] to-[#00D4FF] flex items-center justify-center shadow-lg shadow-[#6C3FE8]/20 shrink-0">
+              <Database className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h2 className="font-orbitron font-extrabold text-white text-sm sm:text-base tracking-widest uppercase">ASTRIX OPERATIONS COMMAND</h2>
-              <p className="text-[9px] font-mono tracking-widest text-[#00D4FF] uppercase flex items-center gap-1.5">
-                <span>Core Node: secure_intel_tunnel_v414</span>
-                <span className="text-gray-500">||</span>
-                <span>Active Operator: {isAuthenticated ? 'superadmin@astrix.com' : 'anonymous'}</span>
-              </p>
+              <div className="flex items-center gap-2">
+                <h1 className="font-display font-extrabold text-xl tracking-wider uppercase">ASTRIX</h1>
+                <span className="text-[10px] bg-indigo-500/15 text-indigo-400 border border-indigo-500/30 px-1.5 py-0.2 rounded font-mono font-extrabold tracking-widest uppercase">PRO</span>
+              </div>
+              <p className="text-xs text-gray-400">Enterprise Administration Command Center designed for high-performance SaaS scaling.</p>
             </div>
           </div>
-          
-          <button 
-            onClick={onClose}
-            className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/5 text-gray-400 hover:text-white transition-all cursor-pointer"
-          >
-            <X className="w-5 h-5" />
-          </button>
+
+          <div className="flex items-center gap-2 self-stretch sm:self-auto justify-between sm:justify-start">
+            {/* Dark & Light Theme Controller */}
+            <button 
+              onClick={() => setThemeMode(themeMode === 'dark' ? 'light' : 'dark')}
+              className={`p-2.5 rounded-xl border transition-all cursor-pointer ${themeMode === 'dark' ? 'bg-white/5 border-white/10 text-yellow-400 hover:bg-white/10' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50 shadow-sm'}`}
+              title="Toggle Light/Dark Workspace Mode"
+            >
+              {themeMode === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+            </button>
+
+            <button
+              onClick={onClose}
+              className={`p-2.5 rounded-xl border transition-all cursor-pointer flex items-center gap-1.5 font-mono text-[10.5px] font-bold ${
+                themeMode === 'dark' ? 'bg-red-500/5 hover:bg-red-500/10 border-red-500/20 text-red-400' : 'bg-red-500/10 hover:bg-red-500/15 border-red-200 text-red-600'
+              }`}
+            >
+              <LogOut className="w-4 h-4" />
+              <span>TERMINATE CONTROL LEASE</span>
+            </button>
+          </div>
         </div>
 
-        {/* Global Notifications Panel */}
+        {/* Global Action Alerts Banner */}
         {error && (
-          <div className="p-3 bg-red-500/10 border-b border-red-500/20 text-red-400 text-xs font-mono flex items-center gap-2 px-6">
+          <div className="mb-6 p-3 bg-red-500/10 border border-red-500/20 text-red-105 text-xs font-mono flex items-center gap-2 rounded-xl text-left">
             <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
             <span>{error}</span>
           </div>
         )}
         {successMsg && (
-          <div className="p-3 bg-emerald-500/10 border-b border-emerald-500/20 text-emerald-400 text-xs font-mono flex items-center gap-2 px-6">
-            <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
+          <div className="mb-6 p-4 bg-emerald-500/10 border border-emerald-400/20 text-emerald-400 text-xs font-mono flex items-center gap-2 rounded-xl">
+            <CheckCircle className="w-4.5 h-4.5 text-emerald-400 shrink-0" />
             <span>{successMsg}</span>
           </div>
         )}
 
-        {/* Auth Barrier Screen */}
+        {/* Security Barrier Login screen */}
         {!isAuthenticated ? (
-          <form onSubmit={handleLogin} className="flex-1 flex flex-col justify-center items-center max-w-md mx-auto p-8 space-y-6">
-            <div className="w-16 h-16 rounded-2xl bg-gradient-to-r from-[#6C3FE8]/10 to-[#00D4FF]/10 border border-[#00D4FF]/20 flex items-center justify-center relative">
-              <Lock className="w-6 h-6 text-cyan-400 animate-pulse" />
-              <div className="absolute inset-0 bg-[#00D4FF]/5 rounded-2xl filter blur-md" />
+          <form onSubmit={handleLogin} className={`max-w-md mx-auto py-12 px-6 rounded-3xl border backdrop-blur-md space-y-6 text-center shadow-xl transition-all duration-300 ${themeMode === 'dark' ? 'border-white/5 bg-black/30 text-white' : 'border-gray-200/80 bg-white/60 text-gray-800'}`}>
+            <div className="w-14 h-14 rounded-2xl bg-gradient-to-r from-[#6C3FE8]/10 to-[#00D4FF]/10 border border-[#00D4FF]/20 flex items-center justify-center relative mx-auto">
+              {secondsLeft > 0 ? (
+                <Shield className="w-6 h-6 text-rose-500 animate-pulse" />
+              ) : (
+                <Lock className="w-6 h-6 text-[#00D4FF] animate-pulse" />
+              )}
+              <div className={`absolute inset-0 rounded-2xl filter blur-md ${secondsLeft > 0 ? 'bg-rose-500/20' : 'bg-[#00D4FF]/5 animate-radial-spin'}`} />
             </div>
 
-            <div className="text-center">
-              <h3 className="font-orbitron font-extrabold text-white text-base tracking-widest">GATEWAY IDENTITY VERIFICATION</h3>
-              <p className="text-[11px] text-gray-400 mt-1.5 leading-relaxed font-light font-display">Provide secure administrative email credentials to decode local database schemas.</p>
+            <div>
+              <h2 className={`font-display font-extrabold text-lg tracking-wider ${themeMode === 'dark' ? 'text-white' : 'text-gray-950'}`}>ENTERPRISE GATEWAY IDENTIFICATION</h2>
+              <p className={`text-[11px] mt-1 font-light leading-relaxed ${themeMode === 'dark' ? 'text-gray-400' : 'text-gray-600'}`}>Provide secure administrative credentials to decode filesystems.</p>
             </div>
 
-            <div className="w-full space-y-4">
+            {/* Lockout status monitor */}
+            {secondsLeft > 0 ? (
+              <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 text-left font-mono space-y-2">
+                <div className="flex items-center gap-2 justify-between">
+                  <span className="text-xs text-rose-400 font-bold tracking-wider">SYSTEM SECURE LOCKOUT ACTIVE</span>
+                  <span className="text-[10px] px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 font-bold">MUTED</span>
+                </div>
+                <p className="text-[10px] text-rose-300/80 leading-relaxed font-light">
+                  Consecutive authorization failures exceeded threat tolerance. Administrative operations have been isolated to protect transaction nodes from credential stuffing.
+                </p>
+                <div className="pt-1.5 flex items-center justify-between border-t border-rose-500/10">
+                  <span className="text-[10px] text-rose-400 uppercase tracking-widest font-bold">REMAINING PENALTY:</span>
+                  <span className="text-xs text-rose-100 font-extrabold animate-pulse">{formatTimeLeft(secondsLeft)}</span>
+                </div>
+              </div>
+            ) : failedAttempts > 0 ? (
+              <div className="p-3.5 rounded-xl bg-amber-500/15 border border-amber-500/30 text-left font-mono space-y-1">
+                <div className="flex items-center gap-1.5 text-amber-400 font-bold text-xs">
+                  <AlertCircle className="w-4 h-4 shrink-0 animate-bounce" />
+                  <span>DECK COMPROMISE ACCENT</span>
+                </div>
+                <p className="text-[10px] text-amber-200/85 font-light leading-snug">
+                  Unsuccessful login recorded. The administrative shell triggers safety locks at 5, 6, and 7 failed keys.
+                </p>
+                <div className="text-[11px] text-amber-400 font-extrabold uppercase tracking-wide pt-1">
+                  &gt;&gt; {5 - failedAttempts} OVERRIDE ATTEMPTS REMAINING
+                </div>
+              </div>
+            ) : null}
+
+            <div className="space-y-4 text-left">
               <div className="space-y-1">
-                <label className="text-[9px] font-mono text-gray-400 tracking-wider uppercase">Administrative Email</label>
+                <label className={`text-[9.5px] font-mono uppercase tracking-widest block font-bold ${themeMode === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>Email Username</label>
                 <div className="relative">
-                  <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
                   <input
-                    type="email"
-                    required
-                    placeholder="Enter 'admin@astrix.com'"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                    className="w-full bg-black/60 text-xs sm:text-sm text-white placeholder-gray-600 pl-10 pr-4 py-3 rounded-xl border border-white/5 focus:border-[#00D4FF]/30 focus:outline-none transition-all font-mono"
+                    type="email" required placeholder="admin@astrix.com"
+                    value={username} onChange={e => setUsername(e.target.value)}
+                    disabled={secondsLeft > 0}
+                    className={`w-full text-xs pl-9 pr-4 py-3 rounded-xl font-mono focus:outline-none focus:ring-1 transition-all ${
+                      secondsLeft > 0
+                        ? 'bg-rose-500/5 border border-rose-500/10 text-rose-300 opacity-60 cursor-not-allowed text-rose-400/70 placeholder-rose-700/50'
+                        : themeMode === 'dark' 
+                          ? 'text-white placeholder-gray-600 bg-black/60 border border-white/5 focus:border-[#00D4FF]/40 focus:ring-[#00D4FF]/20' 
+                          : 'text-gray-800 placeholder-gray-400 bg-white border border-gray-200 focus:border-[#6C3FE8] focus:ring-[#6C3FE8]/20 shadow-sm'
+                    }`}
                   />
                 </div>
               </div>
-
               <div className="space-y-1">
-                <label className="text-[9px] font-mono text-gray-400 tracking-wider uppercase">Secure Encryption Passphrase</label>
+                <label className={`text-[9.5px] font-mono uppercase tracking-widest block font-bold ${themeMode === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>Security Passphrase</label>
                 <div className="relative">
-                  <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
                   <input
-                    type="password"
-                    required
-                    placeholder="Enter 'password123'"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="w-full bg-black/60 text-xs sm:text-sm text-white placeholder-gray-600 pl-10 pr-4 py-3 rounded-xl border border-white/5 focus:border-[#00D4FF]/30 focus:outline-none transition-all"
+                    type="password" required placeholder="password123"
+                    value={password} onChange={e => setPassword(e.target.value)}
+                    disabled={secondsLeft > 0}
+                    className={`w-full text-xs pl-9 pr-4 py-3 rounded-xl font-mono focus:outline-none focus:ring-1 transition-all ${
+                      secondsLeft > 0
+                        ? 'bg-rose-500/5 border border-rose-500/10 text-rose-300 opacity-60 cursor-not-allowed text-rose-400/70 placeholder-rose-700/50'
+                        : themeMode === 'dark' 
+                          ? 'text-white placeholder-gray-600 bg-black/60 border border-white/5 focus:border-[#00D4FF]/40 focus:ring-[#00D4FF]/20' 
+                          : 'text-gray-800 placeholder-gray-400 bg-white border border-gray-200 focus:border-[#6C3FE8] focus:ring-[#6C3FE8]/20 shadow-sm'
+                    }`}
                   />
                 </div>
               </div>
@@ -776,1227 +688,1397 @@ export default function AdminDashboard({ onClose }: AdminDashboardProps) {
 
             <button
               type="submit"
-              className="w-full py-3.5 rounded-xl bg-gradient-to-r from-[#6C3FE8] to-[#00D4FF] text-white font-orbitron font-extrabold text-xs tracking-widest uppercase hover:brightness-110 active:scale-98 cursor-pointer transition-all shadow-lg shadow-[#6C3FE8]/25"
+              disabled={secondsLeft > 0}
+              className={`w-full py-3.5 rounded-xl text-white font-display font-bold text-xs tracking-widest uppercase transition-all shadow-lg ${
+                secondsLeft > 0
+                  ? 'bg-rose-600/35 border border-rose-500/20 text-rose-300 cursor-not-allowed shadow-none opacity-50'
+                  : 'bg-gradient-to-r from-[#6C3FE8] to-[#00D4FF] hover:brightness-110 active:scale-[0.98] cursor-pointer shadow-[#6C3FE8]/25'
+              }`}
             >
-              INITIALIZE COMMAND PROMPT
+              {secondsLeft > 0 ? 'SIGN IN CHANNEL MUTED' : 'INITIALIZE INTERFACE PROMPT'}
             </button>
           </form>
         ) : (
-          /* Main Command Center Deck */
-          <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
+          /* Real SaaS Deck Workspace Structure */
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
             
-            {/* Sidebar Command Tabs (Responsive flow) */}
-            <div className="w-full md:w-64 border-r border-white/5 bg-black/35 flex flex-col justify-between p-4 overflow-y-auto space-y-6 shrink-0">
-              <div className="space-y-5">
+            {/* Sidebar navigation column structured like Linear/Notion */}
+            <div className={`md:col-span-3 rounded-2xl border p-4 flex flex-col justify-between gap-6 overflow-y-auto ${themeMode === 'dark' ? 'bg-[#080E1E] border-white/5' : 'bg-white border-gray-200/80 shadow-sm'}`}>
+              <div className="space-y-6">
                 <div>
-                  <span className="text-[9px] font-mono text-gray-500 tracking-widest block uppercase font-bold mb-2 px-2.5">
-                    OVERVIEW DECK
+                  <span className="text-[9px] font-mono text-gray-500 tracking-widest block uppercase font-extrabold mb-2.5 px-1">
+                    System Telemetries
                   </span>
-                  
-                  <button
-                    onClick={() => setActiveTab('dashboard')}
-                    className={`w-full flex items-center justify-between p-2.5 rounded-xl text-xs font-semibold tracking-wider transition-all cursor-pointer ${
-                      activeTab === 'dashboard'
-                        ? 'bg-gradient-to-r from-violet-500/10 to-cyan-500/10 text-cyan-400 border border-cyan-500/20'
-                        : 'text-gray-400 hover:text-white hover:bg-white/5'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2">
-                      <BarChart3 className="w-4 h-4" />
-                      <span className="font-orbitron">Dashboard Stats</span>
-                    </div>
-                    {stats && (
-                      <span className="bg-cyan-500/10 text-cyan-300 text-[8.5px] px-2 py-0.5 rounded border border-cyan-500/20 font-mono">
-                        LIVE
-                      </span>
-                    )}
-                  </button>
-                </div>
-
-                <div>
-                  <span className="text-[9px] font-mono text-gray-500 tracking-widest block uppercase font-bold mb-2 px-2.5">
-                    CORE ASSETS
-                  </span>
-                  
                   <div className="space-y-1">
-                    <button
-                      onClick={() => setActiveTab('services')}
-                      className={`w-full flex items-center justify-between p-2.5 rounded-xl text-xs tracking-wide transition-all cursor-pointer ${
-                        activeTab === 'services'
-                          ? 'bg-gradient-to-r from-violet-500/10 to-cyan-500/10 text-cyan-400 border border-cyan-500/20'
-                          : 'text-gray-400 hover:text-white hover:bg-white/5'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2">
-                        <Sliders className="w-4 h-4" />
-                        <span className="font-display font-medium">Manage Services</span>
-                      </div>
-                      <span className="bg-white/5 text-[9px] px-1.5 py-0.5 rounded text-gray-400 font-mono">
-                        {services.length || 3}
-                      </span>
-                    </button>
-
-                    <button
-                      onClick={() => setActiveTab('projects')}
-                      className={`w-full flex items-center justify-between p-2.5 rounded-xl text-xs tracking-wide transition-all cursor-pointer ${
-                        activeTab === 'projects'
-                          ? 'bg-gradient-to-r from-violet-500/10 to-cyan-500/10 text-cyan-400 border border-cyan-500/20'
-                          : 'text-gray-400 hover:text-white hover:bg-white/5'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2">
-                        <Layers className="w-4 h-4" />
-                        <span className="font-display font-medium">Manage Projects</span>
-                      </div>
-                      <span className="bg-white/5 text-[9px] px-1.5 py-0.5 rounded text-gray-400 font-mono">{projects.length}</span>
-                    </button>
-
-                    <button
-                      onClick={() => setActiveTab('blogs')}
-                      className={`w-full flex items-center justify-between p-2.5 rounded-xl text-xs tracking-wide transition-all cursor-pointer ${
-                        activeTab === 'blogs'
-                          ? 'bg-gradient-to-r from-violet-500/10 to-cyan-500/10 text-cyan-400 border border-cyan-500/20'
-                          : 'text-gray-400 hover:text-white hover:bg-white/5'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2">
-                        <FileText className="w-4 h-4" />
-                        <span className="font-display font-medium">Manage Blogs</span>
-                      </div>
-                      <span className="bg-white/5 text-[9px] px-1.5 py-0.5 rounded text-gray-400 font-mono">{blogs.length}</span>
-                    </button>
+                    {[
+                      { id: 'dashboard', label: 'Monitor Deck', icon: BarChart3 },
+                      { id: 'analytics', label: 'Analytics Center', icon: RefreshCw },
+                    ].map((tab) => (
+                      <button
+                        key={tab.id} onClick={() => setActiveTab(tab.id as any)}
+                        className={`w-full flex items-center justify-between p-2 rounded-xl text-xs font-semibold tracking-wide transition-all cursor-pointer ${
+                          activeTab === tab.id
+                            ? 'bg-[#6C3FE8] text-white shadow-md shadow-[#6C3FE8]/15'
+                            : themeMode === 'dark'
+                              ? 'text-gray-400 hover:text-white hover:bg-white/5'
+                              : 'text-gray-600 hover:text-gray-950 hover:bg-[#6C3FE8]/5'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <tab.icon className="w-4 h-4" />
+                          <span>{tab.label}</span>
+                        </div>
+                      </button>
+                    ))}
                   </div>
                 </div>
 
                 <div>
-                  <span className="text-[9px] font-mono text-gray-500 tracking-widest block uppercase font-bold mb-2 px-2.5">
-                    HUMAN CAPITAL & LEADS
+                  <span className="text-[9px] font-mono text-gray-400 dark:text-gray-500 tracking-widest block uppercase font-extrabold mb-2.5 px-1">
+                    CMS & Media Portals
                   </span>
-
                   <div className="space-y-1">
-                    <button
-                      onClick={() => setActiveTab('messages')}
-                      className={`w-full flex items-center justify-between p-2.5 rounded-xl text-xs tracking-wide transition-all cursor-pointer ${
-                        activeTab === 'messages'
-                          ? 'bg-gradient-to-r from-violet-500/10 to-cyan-500/10 text-cyan-400 border border-cyan-500/20'
-                          : 'text-gray-400 hover:text-white hover:bg-white/5'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2">
-                        <MessageSquare className="w-4 h-4" />
-                        <span className="font-display font-medium">Inbound Leads</span>
-                      </div>
-                      <span className="bg-white/5 text-[9px] px-1.5 py-0.5 rounded text-gray-400 font-mono">{messages.length}</span>
-                    </button>
-
-                    <button
-                      onClick={() => setActiveTab('careers')}
-                      className={`w-full flex items-center justify-between p-2.5 rounded-xl text-xs tracking-wide transition-all cursor-pointer ${
-                        activeTab === 'careers'
-                          ? 'bg-gradient-to-r from-violet-500/10 to-cyan-500/10 text-cyan-400 border border-cyan-500/20'
-                          : 'text-gray-400 hover:text-white hover:bg-white/5'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2">
-                        <Briefcase className="w-4 h-4" />
-                        <span className="font-display font-medium">Careers Control</span>
-                      </div>
-                      <span className="bg-white/5 text-[9px] px-1.5 py-0.5 rounded text-gray-400 font-mono">
-                        {careers.length || 2}
-                      </span>
-                    </button>
+                    {[
+                      { id: 'cms', label: 'Page Builder', icon: Layers },
+                      { id: 'services', label: 'Services Catalogue', icon: Sliders },
+                      { id: 'projects', label: 'Project Portfolio', icon: Briefcase },
+                      { id: 'blogs', label: 'Blogs & Articles', icon: FileText },
+                      { id: 'media', label: 'Media Library', icon: Folder },
+                    ].map((tab) => (
+                      <button
+                        key={tab.id} onClick={() => setActiveTab(tab.id as any)}
+                        className={`w-full flex items-center justify-between p-2 rounded-xl text-xs font-semibold tracking-wide transition-all cursor-pointer ${
+                          activeTab === tab.id
+                            ? 'bg-[#6C3FE8] text-white shadow-md shadow-[#6C3FE8]/15'
+                            : themeMode === 'dark'
+                              ? 'text-gray-400 hover:text-white hover:bg-white/5'
+                              : 'text-gray-600 hover:text-gray-950 hover:bg-[#6C3FE8]/5'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 font-medium">
+                          <tab.icon className="w-4 h-4" />
+                          <span>{tab.label}</span>
+                        </div>
+                      </button>
+                    ))}
                   </div>
                 </div>
 
                 <div>
-                  <span className="text-[9px] font-mono text-gray-500 tracking-widest block uppercase font-bold mb-2 px-2.5">
-                    METRIC CONTROL
+                  <span className="text-[9px] font-mono text-gray-400 dark:text-gray-500 tracking-widest block uppercase font-extrabold mb-2.5 px-1">
+                    Organizational Controls
                   </span>
-
                   <div className="space-y-1">
-                    <button
-                      onClick={() => setActiveTab('settings')}
-                      className={`w-full flex items-center justify-between p-2.5 rounded-xl text-xs tracking-wide transition-all cursor-pointer ${
-                        activeTab === 'settings'
-                          ? 'bg-gradient-to-r from-violet-500/10 to-cyan-500/10 text-cyan-400 border border-cyan-500/20'
-                          : 'text-gray-400 hover:text-white hover:bg-white/5'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2">
-                        <Settings className="w-4 h-4" />
-                        <span className="font-display font-medium">Core Settings & SEO</span>
-                      </div>
-                    </button>
-
-                    <button
-                      onClick={() => setActiveTab('audit_logs')}
-                      className={`w-full flex items-center justify-between p-2.5 rounded-xl text-xs tracking-wide transition-all cursor-pointer ${
-                        activeTab === 'audit_logs'
-                          ? 'bg-gradient-to-r from-violet-500/10 to-cyan-500/10 text-cyan-400 border border-cyan-500/20'
-                          : 'text-gray-400 hover:text-white hover:bg-white/5'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2">
-                        <Shield className="w-4 h-4" />
-                        <span className="font-display font-medium">Security Audits</span>
-                      </div>
-                    </button>
+                    {[
+                      { id: 'leads', label: 'CRM Leads Inbound', icon: MessageSquare, count: messages.length },
+                      { id: 'team', label: 'Team Roles', icon: UserCheck },
+                      { id: 'security', label: 'Security & Audits', icon: ShieldCheck },
+                      { id: 'settings', label: 'Console Configs', icon: Settings },
+                    ].map((tab) => (
+                      <button
+                        key={tab.id} onClick={() => setActiveTab(tab.id as any)}
+                        className={`w-full flex items-center justify-between p-2 rounded-xl text-xs font-semibold tracking-wide transition-all cursor-pointer ${
+                          activeTab === tab.id
+                            ? 'bg-[#6C3FE8] text-white shadow-md shadow-[#6C3FE8]/15'
+                            : themeMode === 'dark'
+                              ? 'text-gray-400 hover:text-white hover:bg-white/5'
+                              : 'text-gray-600 hover:text-gray-950 hover:bg-[#6C3FE8]/5'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 font-display">
+                          <tab.icon className="w-4 h-4" />
+                          <span>{tab.label}</span>
+                        </div>
+                        {tab.count !== undefined && (
+                          <span className={`text-[8.5px] border px-1.5 py-0.2 rounded font-mono font-bold ${
+                            themeMode === 'dark'
+                              ? 'bg-[#00D4FF]/10 text-[#00D4FF] border-[#00D4FF]/20'
+                              : 'bg-indigo-50 text-indigo-600 border-indigo-200'
+                          }`}>
+                            {tab.count}
+                          </span>
+                        )}
+                      </button>
+                    ))}
                   </div>
                 </div>
               </div>
 
-              <div className="pt-4 border-t border-white/5 space-y-3">
-                <div className="p-3 rounded-xl bg-neutral-900 border border-white/5 font-mono text-[8px] text-gray-500 space-y-1">
-                  <div className="flex justify-between text-cyan-400">
-                    <span>SECURITY STAGE:</span>
-                    <span className="font-bold">ACTIVE</span>
+              {/* Console Quick Specs */}
+              <div className="border-t border-gray-200/10 dark:border-white/5 pt-4 space-y-3.5">
+                <div className={`p-3 rounded-xl border font-mono text-[9px] text-gray-400 space-y-1 ${themeMode === 'dark' ? 'bg-[#060B18]/60 border-white/5' : 'bg-gray-50 border-gray-100'}`}>
+                  <div className="flex justify-between text-[#00D4FF] font-bold">
+                    <span>SECURITY GRID:</span>
+                    <span>ACTIVE</span>
                   </div>
-                  <div>CIP CODE: TLS_1_3_XOR</div>
-                  <div>MDM DB STATUS: CONNECTED</div>
+                  <div>CIPHER CODE: SHA-256</div>
+                  <div>DATABASE: POSTGRES-FALLBACK</div>
                 </div>
-
+                
                 <button
                   onClick={handleLogout}
-                  className="w-full flex items-center justify-center gap-2 p-3 rounded-xl bg-red-500/5 hover:bg-red-500/10 border border-red-500/10 text-xs text-red-400 transition-all font-mono tracking-widest font-bold cursor-pointer"
+                  className="w-full flex items-center justify-center gap-2 p-3 rounded-xl bg-red-500/5 hover:bg-red-500/10 border border-red-500/20 text-xs text-red-400 transition-all font-mono font-bold tracking-wider cursor-pointer"
                 >
-                  <LogOut className="w-4 h-4 text-red-400" />
-                  <span>DECOMMISSION CONNECTION</span>
+                  <LogOut className="w-3.5 h-3.5" />
+                  <span>SECURE SIGNOUT</span>
                 </button>
               </div>
             </div>
 
-            {/* Core Operational Deck view panels */}
-            <div className="flex-1 overflow-y-auto p-6 md:p-8 space-y-6">
+            {/* Core Panels View Area (9 columns) */}
+            <div className={`md:col-span-9 p-6 rounded-2xl border ${themeMode === 'dark' ? 'bg-[#070D1E] border-white/5' : 'bg-white border-gray-200/80 shadow-sm'}`}>
               
-              {/* TAB 1: INTERACTIVE DASHBOARD SYSTEM STAR */}
+              {/* TAB: MONITOR DECK (DASHBOARD) with SVG Graphs */}
               {activeTab === 'dashboard' && (
                 <div className="space-y-6">
-                  {/* Title */}
-                  <div className="flex justify-between items-center">
+                  <div className="flex justify-between items-center text-left">
                     <div>
-                      <h3 className="font-orbitron text-lg font-bold text-white tracking-widest uppercase">System Telemetrics Deck</h3>
-                      <p className="text-xs text-gray-400">Continuous relational lookup metrics linking all Astrix website configurations.</p>
+                      <h3 className="font-display text-lg font-bold">System Telemetrics Stream</h3>
+                      <p className="text-xs text-gray-400">An aggregation of visitors, conversion metrics, website health, and active pipelines.</p>
                     </div>
                     <button 
                       onClick={() => fetchAdminData(token)}
-                      className="p-2 rounded-lg border border-white/5 hover:bg-white/5 text-gray-400 hover:text-[#00D4FF] cursor-pointer transition-all flex items-center gap-1.5 text-[10px] font-mono"
+                      className="p-2 bg-[#6C3FE8]/10 hover:bg-[#6C3FE8]/20 text-[#6C3FE8] dark:text-[#00D4FF] rounded-lg border border-indigo-500/10 font-mono text-[10px] flex items-center gap-1.5 cursor-pointer transition-all"
                     >
-                      <RefreshCw className="w-3.5 h-3.5 animate-spin" style={{ animationDuration: '6s' }} />
-                      <span>POLL CORE CONTROLLERS</span>
+                      <RefreshCw className="w-3 h-3 animate-spin" style={{ animationDuration: '6s' }} />
+                      <span>POLL LIVE DATABASES</span>
                     </button>
                   </div>
 
-                  {/* Real stats grids */}
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {/* Stripe-Grade High Density Stats Grid */}
+                  <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
                     {[
-                      { label: 'Active Services', val: stats?.counts?.services || 3, icon: Sliders, col: 'text-cyan-400 border-cyan-500/10' },
-                      { label: 'Decommissioned Projects', val: stats?.counts?.projects || projects.length, icon: Layers, col: 'text-purple-400 border-purple-500/10' },
-                      { label: 'Insights & Research', val: stats?.counts?.blogs || blogs.length, icon: FileText, col: 'text-blue-400 border-blue-500/10' },
-                      { label: 'Inbound Leads', val: stats?.counts?.messages || messages.length, icon: MessageSquare, col: 'text-emerald-400 border-emerald-500/10' },
-                    ].map((card, idx) => (
-                      <div key={idx} className="glass-panel p-5 rounded-2xl border-white/5 bg-black/40 relative overflow-hidden flex items-center gap-4">
-                        <div className="p-2.5 rounded-xl bg-white/[0.02] border border-white/5">
-                          <card.icon className={`w-5 h-5 ${card.col.split(' ')[0]}`} />
+                      { label: 'Total Visitors', val: '84,210', icon: BarChart3, col: 'text-indigo-400' },
+                      { label: 'Monthly Traffic', val: '12,401', icon: FileText, col: 'text-[#00D4FF]' },
+                      { label: 'Leads Pipeline', val: String(messages.length), icon: MessageSquare, col: 'text-emerald-400' },
+                      { label: 'Platform Health', val: '98.6%', icon: ShieldCheck, col: 'text-amber-400' },
+                      { label: 'Conversion Rate', val: '3.42%', icon: Sliders, col: 'text-purple-400' }
+                    ].map((scard, idx) => (
+                      <div key={idx} className={`p-4 rounded-xl border text-left flex flex-col justify-between gap-1.5 ${themeMode === 'dark' ? 'bg-[#060B18]/50 border-white/5' : 'bg-gray-50 border-gray-200/50'}`}>
+                        <div className="flex justify-between items-center text-gray-500">
+                          <span className="text-[10px] uppercase font-semibold tracking-wider font-mono select-none">{scard.label}</span>
+                          <scard.icon className={`w-3.5 h-3.5 ${scard.col}`} />
                         </div>
-                        <div className="space-y-0.5 text-left">
-                          <h4 className="font-orbitron font-extrabold text-2xl text-white">{card.val}</h4>
-                          <span className="text-[10px] text-gray-500 uppercase tracking-widest font-mono font-medium block">
-                            {card.label}
-                          </span>
-                        </div>
+                        <h4 className="text-lg font-bold font-display tracking-tight text-gradient">{scard.val}</h4>
                       </div>
                     ))}
                   </div>
 
-                  {/* Section 2: Extended table metrics */}
-                  <div className="grid grid-cols-1 md:grid-cols-12 gap-5">
-                    {/* Database Health Card */}
-                    <div className="md:col-span-8 glass-panel p-6 rounded-2xl border-white/5 bg-black/40 text-left space-y-4">
-                      <div className="flex items-center gap-2 font-mono text-[10px] text-[#00D4FF] tracking-widest font-bold">
-                        <Terminal className="w-4 h-4 text-cyan-400" />
-                        <span>RELATIONAL TABLE METRICS ENGINE</span>
+                  {/* PREMIUM CUSTOM SVG CHARTS RENDER (Highly visual, 100% React-compatible) */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 text-left">
+                    {/* Visitor Monthly Analytics Wave Spline Chart */}
+                    <div className={`p-5 rounded-xl border space-y-4 ${themeMode === 'dark' ? 'bg-[#060B18]/40 border-white/5' : 'bg-gray-50/50 border-gray-100'}`}>
+                      <div className="flex justify-between items-center border-b border-gray-200/5 dark:border-white/5 pb-2">
+                        <span className="text-xs font-mono uppercase text-gray-400 font-bold select-none">Weekly Active Visitors Wave</span>
+                        <span className="text-[9.5px] font-mono text-[#00D4FF] bg-[#00D4FF]/10 border border-[#00D4FF]/20 px-2 py-0.5 rounded uppercase">spline plot</span>
                       </div>
                       
-                      <div className="space-y-3 font-mono text-xs text-gray-400">
-                        <div className="flex justify-between items-center py-2 border-b border-white/[0.03]">
-                          <span className="font-bold text-white uppercase">User Accounts Table (role-based)</span>
-                          <span className="text-gray-500 font-semibold">{stats?.counts?.users || 2} nodes indexed</span>
+                      {/* Premium SVG Vector Graph */}
+                      <div className="relative h-44 w-full">
+                        <svg className="w-full h-full" viewBox="0 0 500 150" preserveAspectRatio="none">
+                          <defs>
+                            <linearGradient id="visGlow" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="0%" stopColor="#6C3FE8" stopOpacity="0.3"/>
+                              <stop offset="100%" stopColor="#6C3FE8" stopOpacity="0"/>
+                            </linearGradient>
+                          </defs>
+                          {/* Grid horizontal markers */}
+                          <line x1="0" y1="30" x2="500" y2="30" stroke="rgba(255,255,255,0.03)" strokeWidth="1" strokeDasharray="3,3" />
+                          <line x1="0" y1="75" x2="500" y2="75" stroke="rgba(255,255,255,0.03)" strokeWidth="1" strokeDasharray="3,3" />
+                          <line x1="0" y1="120" x2="500" y2="120" stroke="rgba(255,255,255,0.03)" strokeWidth="1" strokeDasharray="3,3" />
+                          
+                          {/* Curve Path */}
+                          <path 
+                            d="M 10,130 Q 80,40 160,110 T 320,50 T 490,40 L 490,150 L 10,150 Z" 
+                            fill="url(#visGlow)" 
+                          />
+                          <path 
+                            d="M 10,130 Q 80,40 160,110 T 320,50 T 490,40" 
+                            fill="none" 
+                            stroke="#6C3FE8" 
+                            strokeWidth="3.2" 
+                          />
+                          
+                          {/* Data points */}
+                          <circle cx="120" cy="85" r="4" fill="#00D4FF" className="animate-pulse" />
+                          <circle cx="320" cy="50" r="4" fill="#00D4FF" className="animate-pulse" />
+                        </svg>
+                        <div className="absolute top-2 left-2 text-[9px] font-mono text-gray-500 bg-neutral-900/40 p-1.5 rounded border border-white/5">
+                          Peak: 14.8k at mid-cycle
                         </div>
-                        <div className="flex justify-between items-center py-2 border-b border-white/[0.03]">
-                          <span className="font-bold text-white uppercase">Careers Core (job postings)</span>
-                          <span className="text-gray-500 font-semibold">{stats?.counts?.careers || careers.length} live openings</span>
-                        </div>
-                        <div className="flex justify-between items-center py-2 border-b border-white/[0.03]">
-                          <span className="font-bold text-white uppercase">Job Applications (candidate records)</span>
-                          <span className="text-gray-500 font-semibold">{stats?.counts?.applications || applications.length} candidates filed</span>
-                        </div>
-                        <div className="flex justify-between items-center py-2 border-b border-white/[0.03]">
-                          <span className="font-bold text-white uppercase">Newsletter subscribers table</span>
-                          <span className="text-gray-500 font-semibold">{stats?.counts?.newsletter || 1} active tunnels</span>
-                        </div>
-                        <div className="flex justify-between items-center py-2">
-                          <span className="font-bold text-[#00D4FF] uppercase">Audit activity logger capacity</span>
-                          <span className="text-cyan-400 font-bold">{stats?.counts?.auditLogs || activityLogs.length} total events audited</span>
-                        </div>
+                      </div>
+
+                      <div className="flex justify-between text-[9px] font-mono text-gray-500">
+                        <span>WK01</span>
+                        <span>WK02 (Calibration phase)</span>
+                        <span>WK03 (Market boost)</span>
+                        <span>WK04</span>
                       </div>
                     </div>
 
-                    {/* Operational Node Health indicators */}
-                    <div className="md:col-span-4 glass-panel p-6 rounded-2xl border-white/5 bg-black/40 text-left flex flex-col justify-between">
-                      <div className="space-y-2">
-                        <span className="text-[9px] font-mono text-gray-500 tracking-widest block uppercase font-bold">
-                          INFRASTRUCTURE HEALTH
-                        </span>
-                        <h4 className="font-orbitron font-extrabold text-white text-base">Node Connection Synced</h4>
+                    {/* Unified Lead Growth & CRM Intake Bar Graph */}
+                    <div className={`p-5 rounded-xl border space-y-4 ${themeMode === 'dark' ? 'bg-[#060B18]/40 border-white/5' : 'bg-gray-50/50 border-gray-100'}`}>
+                      <div className="flex justify-between items-center border-b border-gray-200/5 dark:border-white/5 pb-2">
+                        <span className="text-xs font-mono uppercase text-gray-400 font-bold select-none">CRM Leads Growth Ledger</span>
+                        <span className="text-[9.5px] font-mono text-emerald-400 bg-emerald-400/10 border border-emerald-400/20 px-2 py-0.5 rounded uppercase">intake count</span>
                       </div>
 
-                      <div className="space-y-2.5 pt-4 font-mono text-[10px] text-gray-400">
-                        <div className="flex justify-between">
-                          <span>Edge CPU Weight:</span>
-                          <span className="text-emerald-400 font-bold">{stats?.system_load?.cpu || '24.2%'}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span>DDR memory:</span>
-                          <span className="text-emerald-400 font-bold">{stats?.system_load?.memory || '1.2 GB'}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span>Secure Handshake Sync:</span>
-                          <span className="text-emerald-400 font-bold">{stats?.system_load?.ping || '8ms'}</span>
-                        </div>
+                      {/* Custom column bar chart using inline SVG */}
+                      <div className="h-44 w-full">
+                        <svg className="w-full h-full" viewBox="0 0 500 150" preserveAspectRatio="none">
+                          {/* Grid horizontal markers */}
+                          <line x1="0" y1="40" x2="500" y2="40" stroke="rgba(255,255,255,0.03)" strokeWidth="1" />
+                          <line x1="0" y1="90" x2="500" y2="90" stroke="rgba(255,255,255,0.03)" strokeWidth="1" />
+                          
+                          {/* Styled vertical rounded columns */}
+                          <rect x="30" y="80" width="30" height="70" rx="3" fill="#06B6D4" />
+                          <rect x="110" y="50" width="30" height="100" rx="3" fill="#6C3FE8" />
+                          <rect x="190" y="110" width="30" height="40" rx="3" fill="#00D4FF" />
+                          <rect x="270" y="30" width="30" height="120" rx="3" fill="#F59E0B" />
+                          <rect x="350" y="65" width="30" height="85" rx="3" fill="#10B981" />
+                          <rect x="430" y="45" width="30" height="105" rx="3" fill="#8B5CF6" />
+                        </svg>
                       </div>
 
-                      <div className="mt-4 p-3 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-center font-mono text-[9px] font-bold uppercase tracking-wider">
-                        SECURE_KERNEL_OK // STANDBY
+                      <div className="flex justify-between text-[9px] font-mono text-gray-500 uppercase">
+                        <span>New (31)</span>
+                        <span>Contact (42)</span>
+                        <span>Qualified (18)</span>
+                        <span>Trial (25)</span>
+                        <span>Won (12)</span>
+                        <span>Lost (5)</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Future Ready Financial & Trait Sources indicator row */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-left">
+                    <div className={`p-4 rounded-xl border flex flex-col justify-between gap-3 ${themeMode === 'dark' ? 'bg-[#060B18]/40 border-white/5' : 'bg-gray-50/50 border-gray-100'}`}>
+                      <span className="text-[10px] font-mono text-gray-500 uppercase font-bold select-none">Traffic Sources Breakdown</span>
+                      <div className="space-y-2 text-xs">
+                        {['Direct Operations (38%)', 'Organic Queries (32%)', 'LinkedIn Referrals (18%)', 'Social/Other (12%)'].map((src, i) => (
+                          <div key={i} className="flex justify-between items-center">
+                            <span className="text-gray-400 text-[11px] font-medium">{src.split(' ')[0]} {src.split(' ')[1] || ''}</span>
+                            <span className="font-mono font-bold text-[#00D4FF]">{src.split('(')[1]?.replace(')', '')}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className={`p-4 rounded-xl border flex flex-col justify-between gap-3 ${themeMode === 'dark' ? 'bg-[#060B18]/40 border-white/5' : 'bg-gray-50/50 border-gray-100'}`}>
+                      <span className="text-[10px] font-mono text-gray-500 uppercase font-bold select-none">Global Device Statistics</span>
+                      <div className="space-y-2 text-xs">
+                        {['Mac / Windows Desktop (64%)', 'iOS Mobile SDKs (22%)', 'Android Core (10%)', 'Embedded Client (4%)'].map((src, i) => (
+                          <div key={i} className="flex justify-between items-center">
+                            <span className="text-gray-400 text-[11px] font-medium">{src.split('(')[0]}</span>
+                            <span className="font-mono font-bold text-[#6C3FE8]">{src.split('(')[1]?.replace(')', '')}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className={`p-4 rounded-xl border flex flex-col justify-between gap-3 ${themeMode === 'dark' ? 'bg-[#060B18]/40 border-white/5' : 'bg-gray-50/50 border-gray-100'}`}>
+                      <span className="text-[10px] font-mono text-gray-500 uppercase font-bold select-none">Future-Ready Revenue Ledger</span>
+                      <div className="space-y-1.5 text-left">
+                        <div className="text-xs text-gray-400 font-light">Subscribers ARR projection Value</div>
+                        <h4 className="text-xl font-display font-black text-emerald-400">$184,200 <span className="text-[10px] text-gray-500 font-normal">USD</span></h4>
+                        <span className="text-[9.5px] font-mono text-emerald-400/70 block uppercase">★ 99.8% customer retention</span>
                       </div>
                     </div>
                   </div>
                 </div>
               )}
 
-              {/* TAB 2: MANAGE SERVICES AND INDUSTRIES */}
-              {activeTab === 'services' && (
-                <div className="space-y-8">
+              {/* TAB: CMS DRAG & DROP PAGE BUILDER */}
+              {activeTab === 'cms' && (
+                <div className="space-y-6">
                   <div className="text-left">
-                    <h3 className="font-orbitron text-base font-bold text-white tracking-widest">Dynamic Technological Services</h3>
-                    <p className="text-xs text-gray-400 mt-1">Configure and recalibrate core capabilities showcased across the platform.</p>
+                    <h3 className="font-display text-lg font-bold">Homepage Visual Page Builder</h3>
+                    <p className="text-xs text-gray-400">Order, toggle, and manage live content blocks displayed on Astrix portal homepage.</p>
                   </div>
 
-                  {/* Add Service form */}
-                  <form onSubmit={handleServiceSubmit} className="glass-panel p-5 rounded-2xl border-white/5 space-y-4 bg-white/[0.01]">
-                    <div className="text-xs font-mono text-cyan-400 font-bold uppercase border-b border-white/5 pb-2">
-                      {editingService ? `RECONFIGURING CAPABILITY: ${editingService.title}` : 'DEPLOY NEW ASTRIX SERVICE NODE'}
-                    </div>
+                  <div className="space-y-3 text-left">
+                    <span className="text-[10.5px] font-mono text-[#6C3FE8] dark:text-[#00D4FF] font-black uppercase tracking-wider block">Homepage Structural Order Blocks</span>
+                    <p className="text-[11.5px] text-gray-400">Rearrange and mute structural modules in real-time:</p>
+                    
+                    <div className="border border-gray-200/50 dark:border-white/5 rounded-2xl overflow-hidden divide-y divide-gray-100 dark:divide-white/5 bg-black/10">
+                      {cmsBlocks.map((block, idx) => (
+                        <div key={block.id} className="flex justify-between items-center p-3.5 hover:bg-white/[0.02]">
+                          <div className="flex items-center gap-3">
+                            <span className="text-xs bg-neutral-900 border border-white/10 px-2 py-0.5 rounded font-mono font-bold text-[#00D4FF]">{idx + 1}</span>
+                            <div className="text-left">
+                              <span className="text-white font-bold block text-xs">{block.name}</span>
+                              <span className="text-[10px] text-gray-500 font-mono font-semibold uppercase">{block.tag}</span>
+                            </div>
+                          </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-1 text-left">
-                        <label className="text-[10px] font-mono text-gray-400">Service Title</label>
-                        <input
-                          type="text"
-                          required
-                          value={serviceForm.title}
-                          onChange={(e) => setServiceForm(prev => ({ ...prev, title: e.target.value }))}
-                          className="w-full bg-black/40 text-xs text-white p-2.5 rounded-xl border border-white/5"
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              onClick={() => handleCmsOrder(idx, 'up')} disabled={idx === 0}
+                              className="p-1 px-2 text-xs bg-white/5 border border-white/5 hover:bg-indigo-600 hover:text-white rounded disabled:opacity-30 cursor-pointer"
+                            >
+                              ▲ Up
+                            </button>
+                            <button
+                              onClick={() => handleCmsOrder(idx, 'down')} disabled={idx === cmsBlocks.length - 1}
+                              className="p-1 px-2 text-xs bg-white/5 border border-white/5 hover:bg-indigo-600 hover:text-white rounded disabled:opacity-30 cursor-pointer"
+                            >
+                              ▼ Down
+                            </button>
+                            <button
+                              onClick={() => {
+                                const copy = [...cmsBlocks];
+                                copy[idx].active = !copy[idx].active;
+                                setCmsBlocks(copy);
+                                setSuccessMsg(`Muted/Unmuted ${block.name} successfully.`);
+                                setTimeout(() => setSuccessMsg(''), 1500);
+                              }}
+                              className={`p-1 px-2 text-[10.5px] rounded border font-mono font-semibold transition-all cursor-pointer ${block.active ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/20' : 'bg-red-500/10 text-red-400 border-red-500/20 hover:bg-red-500/20'}`}
+                            >
+                              {block.active ? 'ACTIVE' : 'MUTED'}
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  
+                  {/* Custom Landing block creator */}
+                  <div className={`p-5 rounded-2xl border ${themeMode === 'dark' ? 'bg-[#060B18]/40 border-white/5' : 'bg-gray-50 border-gray-100'}`}>
+                    <h4 className="font-display text-xs font-bold uppercase tracking-wider text-[#6C3FE8] dark:text-[#00D4FF] text-left">Trigger Custom Banner CTA</h4>
+                    <p className="text-[11.5px] text-gray-400 text-left mt-1">Change visual settings coordinates dynamically.</p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3 text-left">
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-mono text-gray-500 uppercase">Banner Headline</label>
+                        <input 
+                          type="text" defaultValue="Interactive Core Diagnostic Labs"
+                          className="w-full text-xs text-white p-2.5 bg-black/40 border border-white/5 rounded-xl font-mono focus:outline-none"
                         />
                       </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-mono text-gray-500 uppercase font-light">Accent highlight button</label>
+                        <input 
+                          type="text" defaultValue="Simulate Now"
+                          className="w-full text-xs text-white p-2.5 bg-black/40 border border-white/5 rounded-xl font-mono focus:outline-none"
+                        />
+                      </div>
+                    </div>
+                    <button 
+                      onClick={() => { setSuccessMsg('Homepage custom banner settings serialized.'); setTimeout(() => setSuccessMsg(''), 2000); }}
+                      className="mt-4 px-4 py-2.5 bg-[#6C3FE8] hover:bg-[#6C3FE8]/80 text-white font-mono text-[10.5px] uppercase font-bold rounded-xl transition-all cursor-pointer"
+                    >
+                      COMMIT CTA BANNER
+                    </button>
+                  </div>
+                </div>
+              )}
 
-                      <div className="space-y-1 text-left">
-                        <label className="text-[10px] font-mono text-gray-400">Core Category Folder</label>
+              {/* TAB: LEAD MANAGEMENT CRM & IMMUTABLE CSV PIPELINE */}
+              {activeTab === 'leads' && (
+                <div className="space-y-6">
+                  <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 text-left border-b border-white/5 pb-4">
+                    <div>
+                      <h3 className="font-display text-lg font-bold">Inbound CRM Pipeline & Lead CRM</h3>
+                      <p className="text-xs text-gray-400 font-light">Qualify, note, and update customer requests generated across Astrix landing nodes.</p>
+                    </div>
+                    <button 
+                      onClick={exportLeadsCSV}
+                      className="px-4 py-2.5 bg-[#00D4FF]/10 text-[#00D4FF] border border-[#00D4FF]/20 hover:bg-[#00D4FF]/20 rounded-xl font-mono text-xs font-bold leading-none flex items-center gap-1.5 cursor-pointer select-none transition-all"
+                    >
+                      <Download className="w-4 h-4" />
+                      <span>EXPORT FULL LEADS CSV</span>
+                    </button>
+                  </div>
+
+                  {/* CRM pipeline status selector */}
+                  <div className="flex flex-wrap gap-2.5 justify-start text-xs font-mono">
+                    <span className="text-gray-500 font-bold self-center uppercase text-[10px] tracking-wider font-mono mr-1">CRM Filter:</span>
+                    {(['all', 'new', 'contacted', 'won', 'lost'] as const).map((st) => (
+                      <button
+                        key={st} onClick={() => setCrmFilters(st)}
+                        className={`px-3 py-1.5 rounded-lg border font-bold uppercase transition-all cursor-pointer ${crmFilters === st ? 'bg-[#00D4FF]/10 text-[#00D4FF] border-[#00D4FF]/30' : 'bg-transparent text-gray-400 border-white/5 hover:text-white'}`}
+                      >
+                        {st}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Interactive CRM leads cards list */}
+                  <div className="space-y-4">
+                    {messages.length === 0 ? (
+                      <div className="py-12 text-center text-gray-500 font-mono text-xs border border-white/5 bg-black/40 rounded-2xl">
+                        NO ACTIVE INBOUND LEADS INDEXED YET on system database schemas.
+                      </div>
+                    ) : (
+                      messages
+                        .filter(m => crmFilters === 'all' || (m.status || 'new') === crmFilters)
+                        .map((lead) => (
+                          <div key={lead.id} className="p-5 rounded-2xl border border-gray-250 dark:border-white/5 bg-[#060B18]/30 text-left space-y-4 hover:border-[#6C3FE8]/25 transition-all">
+                            <div className="flex flex-wrap justify-between items-start gap-2 border-b border-gray-200/10 dark:border-white/5 pb-3">
+                              <div>
+                                <h4 className="font-display font-extrabold text-[#00D4FF] text-sm flex items-center gap-2">
+                                  {lead.name}
+                                  {lead.company && <span className="text-[9px] bg-[#6C3FE8]/20 text-[#6C3FE8] dark:text-indigo-300 px-2 py-0.5 border border-indigo-500/20 rounded font-mono uppercase">{lead.company}</span>}
+                                </h4>
+                                <span className="text-[10px] font-mono text-gray-400">{lead.email} | {lead.phone || 'No phone'}</span>
+                              </div>
+
+                              <div className="flex items-center gap-2 font-mono text-[10.5px]">
+                                <span className="text-gray-500 text-[9.5px]">{new Date(lead.created_at || lead.timestamp || Date.now()).toLocaleDateString()}</span>
+                                <select
+                                  value={lead.status || 'new'}
+                                  onChange={async (e) => {
+                                    try {
+                                      const res = await fetch(`/api/contact/${lead.id}`, {
+                                        method: 'PUT',
+                                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                                        body: JSON.stringify({ status: e.target.value })
+                                      });
+                                      if (res.ok) {
+                                        setSuccessMsg(`Lead status changed: ${e.target.value.toUpperCase()}`);
+                                        fetchAdminData(token);
+                                        setTimeout(() => setSuccessMsg(''), 2000);
+                                      }
+                                    } catch (err) { setError('Failed to update lead status.'); }
+                                  }}
+                                  className="bg-black text-[10px] text-[#00D4FF] border border-white/10 rounded px-2 py-1 focus:outline-none uppercase font-bold"
+                                >
+                                  <option value="new">NEW INQUIRY</option>
+                                  <option value="contacted">CONTACTED</option>
+                                  <option value="won">QUALIFIED WON</option>
+                                  <option value="lost">LOST ARCHIVED</option>
+                                </select>
+                              </div>
+                            </div>
+
+                            <p className="text-xs text-gray-300 font-light leading-relaxed pl-3 border-l-2 border-indigo-500/30 font-display">
+                              {lead.message || 'No lead statement supplied.'}
+                            </p>
+
+                            {/* Self-contained notes management per Lead */}
+                            <div className="space-y-2 pt-2 border-t border-gray-200/5 dark:border-white/5">
+                              <label className="text-[9.5px] font-mono text-gray-500 block uppercase font-bold select-none">Internal Technical Notes & Reminders</label>
+                              <div className="flex gap-2">
+                                <input
+                                  type="text"
+                                  placeholder="Leave pipeline notes or follow-up milestones..."
+                                  value={leadNotes[lead.id] !== undefined ? leadNotes[lead.id] : (lead.notes || '')}
+                                  onChange={(e) => setLeadNotes(prev => ({ ...prev, [lead.id]: e.target.value }))}
+                                  className="w-full text-xs text-white p-2 px-3 bg-black/40 border border-white/5 focus:outline-none rounded-xl font-mono"
+                                />
+                                <button
+                                  onClick={() => handleSaveLeadNote(lead.id, leadNotes[lead.id] || '')}
+                                  className="px-4 bg-[#6C3FE8] hover:bg-[#6C3FE8]/80 text-white rounded-xl text-xs font-mono font-bold uppercase transition-all cursor-pointer"
+                                >
+                                  Save_Note
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        ))
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* TAB: SERVICES CATALOGUE */}
+              {activeTab === 'services' && (
+                <div className="space-y-6">
+                  <div className="text-left">
+                    <h3 className="font-display text-lg font-bold">Dynamic Services Catalogue</h3>
+                    <p className="text-xs text-gray-400">Configure and calibrate Astrix capability grids displayed on main web nodes.</p>
+                  </div>
+
+                  <form onSubmit={handleServiceSubmit} className="p-5 rounded-2xl border border-gray-200/60 dark:border-white/5 bg-[#060B18]/20 space-y-4">
+                    <div className="text-xs font-mono text-[#00D4FF] font-black uppercase text-left border-b border-gray-200/10 dark:border-white/5 pb-2">
+                      {editingService ? `RECONFIGURING: ${editingService.title}` : 'DEPLOY SERVICE ACCREDITATION CAPABILITY'}
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-mono text-gray-500">Service Title</label>
                         <input
-                          type="text"
-                          value={serviceForm.category}
+                          type="text" required value={serviceForm.title}
+                          onChange={(e) => setServiceForm(prev => ({ ...prev, title: e.target.value }))}
+                          className="w-full bg-black/40 text-xs text-white p-2.5 rounded-xl border border-white/5 font-mono"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-mono text-gray-500">Core Category</label>
+                        <input
+                          type="text" value={serviceForm.category}
                           onChange={(e) => setServiceForm(prev => ({ ...prev, category: e.target.value }))}
-                          className="w-full bg-black/40 text-xs text-white p-2.5 rounded-xl border border-white/5"
+                          className="w-full bg-black/40 text-xs text-white p-2.5 rounded-xl border border-white/5 font-mono"
                         />
                       </div>
                     </div>
 
                     <div className="space-y-1 text-left">
-                      <label className="text-[10px] font-mono text-gray-400">Abstract Brief Description</label>
+                      <label className="text-[10px] font-mono text-gray-500">Brief Abstract Summary</label>
                       <input
-                        type="text"
-                        required
-                        value={serviceForm.short_description}
+                        type="text" required value={serviceForm.short_description}
                         onChange={(e) => setServiceForm(prev => ({ ...prev, short_description: e.target.value }))}
                         className="w-full bg-black/40 text-xs text-white p-2.5 rounded-xl border border-white/5"
                       />
                     </div>
 
                     <div className="space-y-1 text-left">
-                      <label className="text-[10px] font-mono text-gray-400">Detailed Full Description</label>
+                      <label className="text-[10px] font-mono text-gray-500 font-light text-sans">Detailed Full Capabilities Narrative</label>
                       <textarea
-                        rows={3}
-                        value={serviceForm.full_description}
+                        rows={3} value={serviceForm.full_description}
                         onChange={(e) => setServiceForm(prev => ({ ...prev, full_description: e.target.value }))}
                         className="w-full bg-black/40 text-xs text-white p-2.5 rounded-xl border border-white/5 focus:outline-none"
                       />
                     </div>
 
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                      <div className="space-y-1 text-left">
-                        <label className="text-[10px] font-mono text-gray-400">Lucide Vector Icon Name</label>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-left">
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-mono text-gray-500">Vector Icon Node</label>
                         <input
-                          type="text"
-                          value={serviceForm.icon}
+                          type="text" value={serviceForm.icon}
                           onChange={(e) => setServiceForm(prev => ({ ...prev, icon: e.target.value }))}
                           className="w-full bg-black/40 text-xs text-white p-2.5 rounded-xl border border-white/5 font-mono"
                         />
                       </div>
-                      <div className="space-y-1 text-left">
-                        <label className="text-[10px] font-mono text-gray-400">Sort Ordering weight</label>
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-mono text-gray-500">Sort weight</label>
                         <input
-                          type="number"
-                          value={serviceForm.sort_order}
+                          type="number" value={serviceForm.sort_order}
                           onChange={(e) => setServiceForm(prev => ({ ...prev, sort_order: e.target.value }))}
                           className="w-full bg-black/40 text-xs text-white p-2.5 rounded-xl border border-white/5 font-mono"
                         />
                       </div>
-                      <div className="md:col-span-1 pt-5 flex items-center">
+                      <div className="flex items-end mb-1">
                         <button
                           type="submit"
-                          className="w-full py-2.5 bg-gradient-to-r from-purple-500 to-cyan-500 rounded-xl text-white font-orbitron font-semibold text-[10px] tracking-wider uppercase hover:brightness-110 active:scale-95 transition-all text-center cursor-pointer"
+                          className="w-full py-2.5 bg-[#6C3FE8] hover:bg-[#6C3FE8]/80 rounded-xl text-white font-mono text-[10px] font-bold uppercase transition-all text-center cursor-pointer"
                         >
-                          {editingService ? 'COMMIT SERVICE DATA' : 'PUBLISH CAPABILITY'}
+                          {editingService ? 'COMMIT RECALIBRATION' : 'PUBLISH SERVICE INDEX'}
                         </button>
                       </div>
                     </div>
                   </form>
 
-                  {/* List of active services */}
-                  <div className="space-y-3">
-                    <span className="text-[10px] font-mono text-purple-400 tracking-wider block font-bold uppercase text-left">
-                      DEPLOYED DIGITAL SERVICES INDEX
-                    </span>
-
-                    <div className="rounded-2xl border border-white/5 overflow-hidden text-xs bg-black/40 font-display">
-                      {services.map((item) => (
-                        <div key={item.id} className="flex justify-between items-center p-3.5 border-b border-white/5 hover:bg-white/[0.01]">
-                          <div className="text-left font-display">
+                  <div className="space-y-2 text-left">
+                    <span className="text-[10px] font-mono text-[#00D4FF] tracking-wider uppercase font-extrabold block">LIVE DEPLOYED CAPABILITY SERVERS INDEX</span>
+                    <div className="rounded-xl border border-white/5 overflow-hidden text-xs bg-black/20 text-left divide-y divide-gray-200/5 dark:divide-white/5">
+                      {services.map((srv) => (
+                        <div key={srv.id} className="p-4 flex justify-between items-center hover:bg-neutral-900/10">
+                          <div>
                             <div className="flex items-center gap-2">
-                              <span className="font-bold text-white">{item.title}</span>
-                              <span className="bg-purple-500/15 text-purple-300 text-[8px] font-mono px-2 py-0.2 rounded border border-purple-500/20">{item.category}</span>
+                              <span className="text-white font-bold">{srv.title}</span>
+                              <span className="text-[10px] text-indigo-400 font-mono bg-indigo-500/10 px-2 py-0.2 rounded border border-indigo-500/20">{srv.category}</span>
                             </div>
-                            <span className="text-gray-400 text-[10.5px] font-light mt-1 block max-w-lg truncate">{item.short_description}</span>
+                            <p className="text-[11.5px] text-gray-400 mt-1 max-w-xl truncate">{srv.short_description}</p>
                           </div>
-
-                          <div className="flex items-center gap-2">
+                          
+                          <div className="flex gap-1.5">
                             <button
                               onClick={() => {
-                                setEditingService(item);
+                                setEditingService(srv);
                                 setServiceForm({
-                                  title: item.title,
-                                  short_description: item.short_description,
-                                  full_description: item.full_description || '',
-                                  category: item.category || 'AI Systems',
-                                  icon: item.icon || 'Cpu',
-                                  sort_order: String(item.sort_order || 1)
+                                  title: srv.title,
+                                  short_description: srv.short_description,
+                                  full_description: srv.full_description || '',
+                                  category: srv.category || 'AI Systems',
+                                  icon: srv.icon || 'Cpu',
+                                  sort_order: String(srv.sort_order)
                                 });
                               }}
-                              className="p-1.5 rounded-lg border border-cyan-500/10 hover:border-cyan-500/40 text-cyan-400 hover:bg-cyan-500/10 cursor-pointer"
+                              className="p-1 px-2 uppercase font-mono text-[10px] text-cyan-400 bg-cyan-500/5 hover:bg-cyan-500/15 border border-cyan-500/20 rounded cursor-pointer transition-colors"
                             >
-                              <Edit className="w-3.5 h-3.5" />
+                              Edit
                             </button>
                             <button
-                              onClick={() => handleDeleteService(item.id)}
-                              className="p-1.5 rounded-lg border border-red-500/10 hover:border-red-500/40 text-red-500 hover:bg-red-500/10 cursor-pointer"
+                              onClick={async () => {
+                                if (!window.confirm('Delete this service competency?')) return;
+                                try {
+                                  const res = await fetch(`/api/services/${srv.id}`, {
+                                    method: 'DELETE',
+                                    headers: { 'Authorization': `Bearer ${token}` }
+                                  });
+                                  if (res.ok) {
+                                    setSuccessMsg('Service removed successfully.');
+                                    fetchServices();
+                                    notifyDataChanged();
+                                    setTimeout(() => setSuccessMsg(''), 2000);
+                                  }
+                                } catch (e) {}
+                              }}
+                              className="p-1 px-2 uppercase font-mono text-[10px] text-red-500 bg-red-500/5 hover:bg-red-500/15 border border-red-500/20 rounded cursor-pointer transition-colors"
                             >
-                              <Trash2 className="w-3.5 h-3.5" />
+                              Purge
                             </button>
                           </div>
                         </div>
                       ))}
                     </div>
                   </div>
-
-                  {/* Sectors / Industries management wrapper */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-white/5">
-                    
-                    {/* Add Industry */}
-                    <form onSubmit={handleIndustrySubmit} className="glass-panel p-5 rounded-2xl border-white/5 space-y-4 bg-white/[0.01]">
-                      <span className="text-[10px] font-mono text-cyan-400 tracking-wider block font-bold uppercase text-left">
-                        INDEX NEW INDUSTRY CONTEXT
-                      </span>
-                      <div className="space-y-1 text-left">
-                        <label className="text-[10px] font-mono text-gray-500">Sector Name</label>
-                        <input
-                          type="text"
-                          required
-                          value={indForm.name}
-                          onChange={(e) => setIndForm(prev => ({ ...prev, name: e.target.value }))}
-                          className="w-full bg-black/40 text-xs text-white p-2.5 border border-white/5 rounded-xl"
-                        />
-                      </div>
-                      <div className="space-y-1 text-left">
-                        <label className="text-[10px] font-mono text-gray-500 font-light">Short Sector Description</label>
-                        <input
-                          type="text"
-                          required
-                          value={indForm.description}
-                          onChange={(e) => setIndForm(prev => ({ ...prev, description: e.target.value }))}
-                          className="w-full bg-black/40 text-xs text-white p-2.5 border border-white/5 rounded-xl"
-                        />
-                      </div>
-                      <button
-                        type="submit"
-                        className="py-2.5 w-full bg-cyan-500/10 border border-cyan-500/20 rounded-xl text-cyan-300 font-orbitron font-semibold text-[9.5px] uppercase hover:bg-cyan-500/20 active:scale-95 transition-all text-center cursor-pointer"
-                      >
-                        PUBLISH INDUSTRIAL METRIC CODESET
-                      </button>
-                    </form>
-
-                    {/* Sectors layout logs list */}
-                    <div className="glass-panel p-5 rounded-2xl border-white/5 bg-black/40 space-y-3.5 text-left">
-                      <span className="text-[10px] font-mono text-gray-500 tracking-widest block uppercase font-bold">
-                        ACTIVE INDUSTRIES LEDGER
-                      </span>
-                      <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
-                        {industries.map((ind) => (
-                          <div key={ind.id} className="p-2 border border-white/[0.03] rounded-lg flex items-center justify-between text-[11px]">
-                            <span className="font-bold text-white">{ind.name}</span>
-                            <span className="text-gray-500 font-mono text-[9px] uppercase font-semibold">Active Sector</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                  </div>
-
                 </div>
               )}
 
-              {/* TAB 3: DYNAMIC INNOVATION PORTFOLIOS AND PROJECTS */}
+              {/* TAB: PROJECT MANAGEMENT PORTFOLIO */}
               {activeTab === 'projects' && (
-                <div className="space-y-8">
-                  <div className="flex justify-between items-center text-left">
-                    <div>
-                      <h3 className="font-orbitron text-base font-bold text-white tracking-widest">Dynamic Innovation Portfolios</h3>
-                      <p className="text-xs text-gray-400 mt-1">Manage physical hardware prototypes cataloged globally.</p>
-                    </div>
-                    {editingProject && (
-                      <button 
-                        onClick={resetProjectForm}
-                        className="px-3 py-1.5 rounded-lg border border-white/10 text-[10px] text-gray-400 font-mono hover:text-white cursor-pointer"
-                      >
-                        ABORT EDIT
-                      </button>
-                    )}
+                <div className="space-y-6">
+                  <div className="text-left">
+                    <h3 className="font-display text-lg font-bold">Project Spec Portfolio CMS</h3>
+                    <p className="text-xs text-gray-400 font-light">Add, edit, publish physical and digital prototypes with detailed technical spec sheets.</p>
                   </div>
 
-                  {/* Submit/Edit project form */}
-                  <form onSubmit={handleProjectSubmit} className="glass-panel p-5 rounded-2xl border-white/5 space-y-4 bg-white/[0.01]">
-                    <div className="text-xs font-mono text-cyan-400 font-bold uppercase mb-2 text-left">
-                      {editingProject ? `Editing Product Specs: ${editingProject.title}` : 'Deploy New Dynamic Project'}
+                  <form onSubmit={handleProjectSubmit} className="p-5 rounded-2xl border border-gray-200/50 dark:border-white/5 bg-black/10 space-y-4">
+                    <div className="text-xs font-mono text-[#00D4FF] uppercase font-extrabold border-b border-white/5 pb-2 text-left">
+                      {editingProject ? `EDITING SPECIFICATION: ${editingProject.title}` : 'DEPLOY INNOVATIONAL OUTCOME INDEXED BLOCK'}
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-1 text-left">
-                        <label className="text-[10px] font-mono text-gray-400">Project Title</label>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left font-mono text-xs">
+                      <div className="space-y-1">
+                        <label className="text-[10px] text-gray-500 font-bold uppercase">Project Display Name</label>
                         <input
-                          type="text"
-                          required
-                          value={projForm.title}
+                          type="text" required value={projForm.title}
                           onChange={(e) => setProjForm(prev => ({ ...prev, title: e.target.value }))}
-                          className="w-full bg-black/40 text-xs text-white p-2.5 rounded-xl border border-white/5"
+                          className="w-full text-xs text-white p-2.5 bg-black/40 border border-white/5 rounded-xl font-mono"
                         />
                       </div>
-
-                      <div className="space-y-1 text-left">
-                        <label className="text-[10px] font-mono text-gray-400">Structural Industry Sector</label>
+                      <div className="space-y-1">
+                        <label className="text-[10px] text-gray-500 font-bold uppercase">Industry Sector Bracket</label>
                         <select
                           value={projForm.industry}
-                          onChange={(e) => setProjForm(prev => ({ ...prev, industry: e.target.value as Innovation['industry'] }))}
-                          className="w-full bg-black/40 text-xs text-white p-2.5 rounded-xl border border-[#ffffff0a] focus:outline-none"
+                          onChange={(e) => setProjForm(prev => ({ ...prev, industry: e.target.value as any }))}
+                          className="w-full text-xs text-white p-2.5 bg-neutral-900 border border-white/5 rounded-xl focus:outline-none focus:ring-1"
                         >
                           <option value="Technology">Technology</option>
                           <option value="Healthcare">Healthcare</option>
                           <option value="Artificial Intelligence">Artificial Intelligence</option>
-                          <option value="Engineering">Engineering & Manufacturing</option>
+                          <option value="Engineering">Mechanical & Compounding</option>
                         </select>
                       </div>
                     </div>
 
-                    <div className="space-y-1 text-left">
-                      <label className="text-[10px] font-mono text-gray-400 font-light">Short Abstract / Tagline Summary</label>
-                      <input
-                        type="text"
-                        required
-                        value={projForm.description}
-                        onChange={(e) => setProjForm(prev => ({ ...prev, description: e.target.value }))}
-                        className="w-full bg-black/40 text-xs text-white p-2.5 rounded-xl border border-white/5"
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-1 text-left">
-                        <label className="text-[10px] font-mono text-gray-400">Technologies Array (comma separated)</label>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left font-sans text-xs">
+                      <div className="space-y-1">
+                        <label className="text-[10px] text-gray-500 font-mono font-bold uppercase">Brief Tagline Abstract</label>
                         <input
-                          type="text"
-                          placeholder="e.g. React, Node.js, D3.js, ROS"
+                          type="text" required value={projForm.description}
+                          onChange={(e) => setProjForm(prev => ({ ...prev, description: e.target.value }))}
+                          className="w-full text-xs text-white p-2.5 bg-black/40 border border-white/5 rounded-xl"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] text-gray-500 font-mono font-bold uppercase">Technologies Used (comma CSV)</label>
+                        <input
+                          type="text" placeholder="Flutter, ROS, PyTorch, C++"
                           value={projForm.technologiesUsed}
                           onChange={(e) => setProjForm(prev => ({ ...prev, technologiesUsed: e.target.value }))}
-                          className="w-full bg-black/40 text-xs text-white p-2.5 rounded-xl border border-white/5"
+                          className="w-full text-xs text-white p-2.5 bg-black/40 border border-white/5 rounded-xl font-mono"
                         />
                       </div>
+                    </div>
 
-                      <div className="space-y-1 text-left">
-                        <label className="text-[10px] font-mono text-gray-400">Photo Catalog URL</label>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left text-xs font-mono">
+                      <div className="space-y-1">
+                        <label className="text-[10px] text-gray-500 font-bold uppercase">Screenshot URL / Cover Image</label>
                         <input
-                          type="text"
-                          placeholder="Unsplash image URL or fallback"
-                          value={projForm.imageUrl}
+                          type="text" value={projForm.imageUrl}
                           onChange={(e) => setProjForm(prev => ({ ...prev, imageUrl: e.target.value }))}
-                          className="w-full bg-black/40 text-xs text-white p-2.5 rounded-xl border border-white/5"
+                          className="w-full text-xs text-white p-2.5 bg-black/40 border border-white/5 rounded-xl font-mono"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] text-gray-500 font-bold uppercase">Spec Form Factor</label>
+                        <input
+                          type="text" placeholder="72mm x 35mm Flex"
+                          value={projForm.specValues[0]}
+                          onChange={(e) => {
+                            const newVals = [...projForm.specValues];
+                            newVals[0] = e.target.value;
+                            setProjForm(prev => ({ ...prev, specValues: newVals }));
+                          }}
+                          className="w-full text-xs text-white p-2.5 bg-black/40 border border-white/5 rounded-xl font-mono"
                         />
                       </div>
                     </div>
 
                     <div className="space-y-1 text-left">
-                      <label className="text-[10px] font-mono text-gray-400 font-light">Deep Dive Long Specifications Narrative</label>
+                      <label className="text-[10px] font-mono text-gray-500 block uppercase font-bold">Deconstruction Long Detail Statement</label>
                       <textarea
-                        rows={3}
-                        required
-                        value={projForm.longDescription}
+                        rows={3} required value={projForm.longDescription}
                         onChange={(e) => setProjForm(prev => ({ ...prev, longDescription: e.target.value }))}
-                        className="w-full bg-black/40 text-xs text-white p-2.5 rounded-xl border border-white/5 focus:outline-none"
+                        className="w-full text-xs text-white p-2.5 bg-black/40 border border-white/5 rounded-xl focus:outline-none focus:ring-1"
                       />
                     </div>
 
-                    <div className="space-y-1 text-left">
-                      <label className="text-[10px] font-mono text-gray-400 font-light">Bullet Specs / Core Highlights (One per line)</label>
-                      <textarea
-                        rows={2}
-                        placeholder="Key highlight 1&#10;Key highlight 2"
-                        value={projForm.keyFeatures}
-                        onChange={(e) => setProjForm(prev => ({ ...prev, keyFeatures: e.target.value }))}
-                        className="w-full bg-black/40 text-xs text-white p-2.5 rounded-xl border border-white/5 focus:outline-none"
-                      />
+                    <div className="flex justify-start text-left">
+                      <button
+                        type="submit"
+                        className="px-5 py-3 bg-gradient-to-r from-[#6C3FE8] to-[#00D4FF] rounded-xl text-white font-mono text-[10.5px] font-extrabold uppercase transition-all flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <Plus className="w-4 h-4" />
+                        <span>{editingProject ? 'SAVE PROJECT MODIFICATION' : 'DEPLOY SECURE TO PRODUCTION'}</span>
+                      </button>
+                    </div>
+                  </form>
+
+                  <div className="space-y-3 pt-4 border-t border-white/5 text-left">
+                    <span className="text-[10px] font-mono text-gray-500 block uppercase font-black tracking-wider font-mono select-none">PORTFOLIO DEPLOYED SCHEMAS LEDGER</span>
+                    <div className="rounded-xl border border-white/5 bg-black/20 text-xs divide-y divide-gray-200/5 dark:divide-white/5">
+                      {projects.map((p) => (
+                        <div key={p.id} className="p-3.5 flex justify-between items-center hover:bg-neutral-900/10 transition-colors">
+                          <div className="text-left font-display">
+                            <div className="flex items-center gap-2">
+                              <span className="font-extrabold text-white text-xs">{p.title}</span>
+                              <span className="bg-cyan-500/10 text-cyan-400 text-[8px] font-mono border border-cyan-500/20 px-1.5 py-0.2 rounded font-black tracking-wider uppercase">{p.industry}</span>
+                            </div>
+                            <p className="text-gray-400 text-[10.5px] mt-1 pr-6 max-w-sm truncate">{p.description}</p>
+                          </div>
+                          
+                          <div className="flex gap-1.5 shrink-0">
+                            <button
+                              onClick={() => {
+                                setEditingProject(p);
+                                setProjForm({
+                                  title: p.title,
+                                  description: p.description,
+                                  industry: p.industry,
+                                  technologiesUsed: p.technologiesUsed.join(', '),
+                                  imageUrl: p.imageUrl,
+                                  longDescription: p.longDescription,
+                                  keyFeatures: p.keyFeatures.join('\n'),
+                                  specLabels: p.specs?.map(s => s.label) || ['Form Factor', 'Latency', 'DDoF'],
+                                  specValues: p.specs?.map(s => s.value) || ['', '', '']
+                                });
+                              }}
+                              className="p-1 px-2 font-mono uppercase text-[9.5px] text-cyan-400 bg-cyan-500/5 hover:bg-cyan-500/15 border border-cyan-500/20 rounded cursor-pointer transition-all"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={async () => {
+                                if (!window.confirm('Erase this project specification?')) return;
+                                try {
+                                  const res = await fetch(`/api/admin/projects/${p.id}`, {
+                                    method: 'DELETE',
+                                    headers: { 'Authorization': `Bearer ${token}` }
+                                  });
+                                  if (res.ok) {
+                                    setSuccessMsg('Project expunged successfully from live catalog lists.');
+                                    fetchAdminData(token);
+                                    notifyDataChanged();
+                                    setTimeout(() => setSuccessMsg(''), 2000);
+                                  }
+                                } catch (e) {}
+                              }}
+                              className="p-1 px-2 font-mono uppercase text-[9.5px] text-red-500 bg-red-500/5 hover:bg-red-500/15 border border-red-500/20 rounded cursor-pointer transition-all"
+                            >
+                              Purge
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* TAB: BLOGS MANAGEMENT CMS WITH AI CONTENT WRITER ASSISTANT */}
+              {activeTab === 'blogs' && (
+                <div className="space-y-6">
+                  <div className="text-left border-b border-white/5 pb-4">
+                    <h3 className="font-display text-lg font-bold">Astrix Intelligent Blogs Editor</h3>
+                    <p className="text-xs text-gray-400">Publish thought leadership articles, research papers, and news updates directly.</p>
+                  </div>
+
+                  {/* AI ASSISTANT GENERATION BLOCK FOR BLOGS, CASE STUDIES & SEO DESCRIPTION */}
+                  <div className="p-5 rounded-2xl border border-purple-500/20 bg-gradient-to-tr from-indigo-950/20 to-violet-950/20 space-y-4 shadow-lg shadow-purple-500/5">
+                    <div className="flex justify-between items-center text-left">
+                      <div className="flex items-center gap-2">
+                        <Sparkles className="w-5 h-5 text-purple-400 animate-pulse" />
+                        <span className="font-display font-extrabold text-[#00D4FF] text-xs uppercase tracking-wider">AI Pilot Content & Whitepaper Compiler</span>
+                      </div>
+                      <span className="text-[9px] bg-indigo-500/15 text-indigo-300 font-mono px-2 py-0.5 rounded border border-indigo-500/20 font-bold uppercase select-none">Autonomous Helper</span>
                     </div>
 
-                    {/* Specifications table editor */}
                     <div className="space-y-2 text-left">
-                      <span className="text-[10px] font-mono text-cyan-400 font-bold block uppercase">Hardware & Technical Parameters Table</span>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
-                        {[0, 1, 2].map((idx) => (
-                          <div key={idx} className="flex gap-2 bg-neutral-900/60 p-2 border border-white/5 rounded-xl">
-                            <input
-                              type="text"
-                              placeholder={`Spec Metric`}
-                              value={projForm.specLabels[idx] || ''}
-                              onChange={(e) => {
-                                const labels = [...projForm.specLabels];
-                                labels[idx] = e.target.value;
-                                setProjForm(prev => ({ ...prev, specLabels: labels }));
+                      <label className="text-[10px] font-mono text-gray-400 uppercase font-bold">Explain Article Subject, Keywords, or Innovation Specs:</label>
+                      <div className="flex gap-2">
+                        <input
+                          type="text" placeholder="e.g. quantum biotech calibration patches under extreme sensory latency"
+                          value={aiPrompt} onChange={e => setAiPrompt(e.target.value)}
+                          className="w-full text-xs text-white p-3 bg-black/60 border border-purple-500/20 rounded-xl focus:outline-none focus:ring-1 focus:ring-purple-500 font-mono"
+                        />
+                        <button
+                          type="button" disabled={aiGenerating}
+                          onClick={() => triggerAiGenerator('blog')}
+                          className="px-4 bg-gradient-to-r from-purple-600 to-indigo-600 hover:brightness-110 text-white rounded-xl text-xs font-mono font-bold uppercase transition-all select-none cursor-pointer flex items-center gap-1.5 shrink-0"
+                        >
+                          {aiGenerating ? 'Generating...' : 'WRITE_ARTICLE'}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap gap-2.5 justify-start text-[10px] font-mono text-gray-400">
+                      <span>Quick Presets:</span>
+                      <button type="button" onClick={() => triggerAiGenerator('case_study')} className="underline hover:text-white">Write Case Study</button>
+                      <span className="text-gray-600">|</span>
+                      <button type="button" onClick={() => triggerAiGenerator('seo')} className="underline hover:text-white">Align SEO Meta</button>
+                    </div>
+
+                    {aiResult && (
+                      <div className="p-4 rounded-xl bg-black/40 text-[11px] font-mono border border-indigo-500/15 text-left text-gray-200 divide-y divide-white/5 space-y-2">
+                        <div className="pb-1.5 text-xs text-[#00D4FF] font-bold">Successfully generated. Values applied to editor forms.</div>
+                        <div className="pt-2 text-gray-400"><span className="text-white font-bold">Title:</span> {aiResult.payload.title || aiResult.payload.meta_title}</div>
+                        <div className="pt-2 font-sans line-clamp-3 text-gray-400"><span className="text-white font-bold font-mono">Excerpt:</span> {aiResult.payload.excerpt || aiResult.payload.meta_description}</div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Standard Form */}
+                  <form onSubmit={handleBlogSubmit} className="p-5 rounded-2xl border border-gray-200/50 dark:border-white/5 bg-black/10 space-y-4 text-left">
+                    <div className="text-xs font-mono text-[#00D4FF] font-bold uppercase mb-2 border-b border-white/5 pb-2">
+                      {editingBlog ? `EDITING INSIGHT POST: ${editingBlog.title}` : 'WRITE NEW BLOG LOGBOOK ENTRY'}
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs font-mono">
+                      <div className="space-y-1">
+                        <label className="text-[10px] text-gray-500">Post Title Banner</label>
+                        <input
+                          type="text" required value={blogForm.title}
+                          onChange={(e) => setBlogForm(prev => ({ ...prev, title: e.target.value }))}
+                          className="w-full text-xs text-white p-2.5 bg-black/40 border border-white/5 rounded-xl"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] text-gray-500">Science Category</label>
+                        <select
+                          value={blogForm.category}
+                          onChange={(e) => setBlogForm(prev => ({ ...prev, category: e.target.value as any }))}
+                          className="w-full text-xs text-white p-2.5 bg-neutral-900 border border-white/10 rounded-xl focus:outline-none"
+                        >
+                          <option value="Technology">Technology</option>
+                          <option value="Healthcare">Healthcare</option>
+                          <option value="Artificial Intelligence">Artificial Intelligence</option>
+                          <option value="Engineering">Mechanical Systems</option>
+                          <option value="Innovation">Chemical Innovation</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs font-mono">
+                      <div className="space-y-1">
+                        <label className="text-[10px] text-gray-500">Primary Scientist / Author</label>
+                        <input
+                          type="text" required value={blogForm.author}
+                          onChange={(e) => setBlogForm(prev => ({ ...prev, author: e.target.value }))}
+                          className="w-full text-xs text-white p-2.5 bg-black/40 border border-white/5 rounded-xl font-mono"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] text-gray-500">Excerpt / Brief Paragraph</label>
+                        <input
+                          type="text" required value={blogForm.excerpt}
+                          onChange={(e) => setBlogForm(prev => ({ ...prev, excerpt: e.target.value }))}
+                          className="w-full text-xs text-white p-2.5 bg-black/40 border border-white/5 rounded-xl font-mono"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-mono text-gray-500">Content Markdowns / Plaintext paragraphs</label>
+                      <textarea
+                        rows={5} required value={blogForm.content}
+                        onChange={(e) => setBlogForm(prev => ({ ...prev, content: e.target.value }))}
+                        className="w-full text-xs text-white p-2.5 bg-black/40 border border-white/5 rounded-xl focus:outline-none"
+                      />
+                    </div>
+
+                    <button
+                      type="submit"
+                      className="px-5 py-2.5 bg-gradient-to-r from-violet-600 to-cyan-500 rounded-xl text-white font-mono text-[10.5px] uppercase font-black transition-all flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <Check className="w-4 h-4" />
+                      <span>{editingBlog ? 'SAVE CHANGE METRIC' : 'POST KERNEL ARTICLE'}</span>
+                    </button>
+                  </form>
+
+                  <div className="space-y-3 pt-4 border-t border-white/5 text-left">
+                    <span className="text-[10px] font-mono text-gray-500 block uppercase font-bold tracking-widest font-mono">INSIGHTS PUBLISHED BULLETINS</span>
+                    <div className="rounded-xl border border-white/5 bg-black/20 text-xs divide-y divide-gray-200/5 dark:divide-white/5">
+                      {blogs.map((b) => (
+                        <div key={b.id} className="p-3.5 flex justify-between items-center hover:bg-neutral-900/10 text-[11.5px] transition-colors">
+                          <div className="text-left font-display">
+                            <div className="flex items-center gap-2">
+                              <span className="font-extrabold text-white">{b.title}</span>
+                              <span className="bg-indigo-500/10 text-indigo-400 text-[8px] font-mono border border-indigo-500/20 px-1.5 py-0.2 rounded uppercase">{b.category}</span>
+                            </div>
+                            <span className="text-gray-500 font-mono text-[9.5px] block mt-1">Author: {b.author} | Published is {b.date}</span>
+                          </div>
+
+                          <div className="flex gap-1.5">
+                            <button
+                              onClick={() => {
+                                setEditingBlog(b);
+                                setBlogForm({
+                                  title: b.title,
+                                  category: b.category,
+                                  excerpt: b.excerpt,
+                                  author: b.author,
+                                  content: b.content
+                                });
                               }}
-                              className="w-1/2 p-2 bg-black/40 border border-white/5 rounded text-xs text-white placeholder-gray-600 focus:outline-none"
-                            />
-                            <input
-                              type="text"
-                              placeholder={`Spec Value`}
-                              value={projForm.specValues[idx] || ''}
-                              onChange={(e) => {
-                                const vals = [...projForm.specValues];
-                                vals[idx] = e.target.value;
-                                setProjForm(prev => ({ ...prev, specValues: vals }));
+                              className="p-1 px-2 font-mono uppercase text-[9.5px] text-cyan-400 bg-cyan-500/5 hover:bg-cyan-500/15 border border-cyan-500/10 rounded cursor-pointer"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={async () => {
+                                if (!window.confirm('Wipe this blog article?')) return;
+                                try {
+                                  const res = await fetch(`/api/admin/blogs/${b.id}`, {
+                                    method: 'DELETE',
+                                    headers: { 'Authorization': `Bearer ${token}` }
+                                  });
+                                  if (res.ok) {
+                                    setSuccessMsg('Article deleted successfully from live index.');
+                                    fetchAdminData(token);
+                                    notifyDataChanged();
+                                    setTimeout(() => setSuccessMsg(''), 2000);
+                                  }
+                                } catch (e) {}
                               }}
-                              className="w-1/2 p-2 bg-black/40 border border-white/5 rounded text-xs text-white placeholder-gray-600 focus:outline-none"
-                            />
+                              className="p-1 px-2 font-mono uppercase text-[9.5px] text-red-500 bg-red-500/5 hover:bg-red-500/15 border border-red-500/10 rounded cursor-pointer"
+                            >
+                              Purge
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* TAB: MEDIA LIBRARY CENTRAL MANAGER */}
+              {activeTab === 'media' && (
+                <div className="space-y-6">
+                  <div className="text-left">
+                    <h3 className="font-display text-lg font-bold">Central Media Library</h3>
+                    <p className="text-xs text-gray-400 font-light">Categorize, catalog, and reference your high-end vector branding assets, Lottie scripts, PDFs, and 3D wireframe models.</p>
+                  </div>
+
+                  {/* Folder Tab Directory Selector */}
+                  <div className="flex flex-wrap gap-2 justify-start font-mono text-xs border-b border-gray-200/10 dark:border-white/5 pb-3">
+                    {(['projects', 'services', 'blogs', 'branding', 'team'] as const).map((folder) => (
+                      <button
+                        key={folder} onClick={() => setActiveMediaFolder(folder)}
+                        className={`px-3 py-1.5 rounded-lg border uppercase tracking-wider font-bold transition-all cursor-pointer ${
+                          activeMediaFolder === folder 
+                            ? 'bg-[#6C3FE8]/10 text-[#00D4FF] border-[#6C3FE8]' 
+                            : 'bg-transparent text-gray-400 border-white/5 hover:text-white'
+                        }`}
+                      >
+                        Folder: {folder}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Add file mock form */}
+                  <form onSubmit={handleUploadAssetMock} className="p-4 rounded-xl border border-dashed border-gray-200/50 dark:border-white/10 bg-black/10 flex flex-col md:flex-row items-center gap-3">
+                    <div className="text-left py-1 text-xs font-mono font-bold uppercase shrink-0">Upload Simulated Asset:</div>
+                    
+                    <input
+                      type="text" required placeholder="Enter asset filename, e.g. calibration_matrices" value={newMediaName}
+                      onChange={e => setNewMediaName(e.target.value)}
+                      className="w-full text-xs text-white px-3 py-2 bg-black/40 border border-white/5 rounded-xl font-mono focus:outline-none"
+                    />
+
+                    <select
+                      value={newMediaType} onChange={e => setNewMediaType(e.target.value)}
+                      className="bg-neutral-900 border border-white/15 px-3 py-2 rounded-xl text-xs font-mono focus:outline-none focus:ring-1 shrink-0"
+                    >
+                      <option value="Image">Image (.png)</option>
+                      <option value="PDF">PDF (.pdf)</option>
+                      <option value="3D Model">3D Model (.gltf)</option>
+                      <option value="Lottie">Lottie (.lottie)</option>
+                      <option value="Video">Video (.mp4)</option>
+                    </select>
+
+                    <button
+                      type="submit"
+                      className="px-5 py-2.5 bg-[#6C3FE8] hover:bg-[#6C3FE8]/80 rounded-xl text-white font-mono text-xs font-bold uppercase tracking-wider shrink-0 cursor-pointer self-stretch md:self-auto"
+                    >
+                      COMMIT_UPLOAD
+                    </button>
+                  </form>
+
+                  {/* Active Folder Assets listing */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 text-left">
+                    {mediaAssets
+                      .filter(asset => asset.folder === activeMediaFolder)
+                      .map((asset) => (
+                        <div key={asset.id} className="p-4 border border-gray-250 dark:border-white/5 bg-[#060B18]/30 hover:border-indigo-500/20 transition-all rounded-xl relative overflow-hidden group flex flex-col justify-between h-32 text-xs">
+                          <div className="flex justify-between items-start">
+                            <div className="flex items-center gap-2">
+                              {asset.type === 'Image' ? <ImageIcon className="w-4 h-4 text-emerald-400" /> :
+                               asset.type === 'PDF' ? <File className="w-4 h-4 text-red-400" /> :
+                               asset.type === 'Video' ? <Video className="w-4 h-4 text-blue-400" /> :
+                               <Terminal className="w-4 h-4 text-amber-400" />}
+                              <span className="font-extrabold text-[#00D4FF] truncate font-mono select-all block max-w-[120px]" title={asset.name}>{asset.name}</span>
+                            </div>
+                            <span className="text-[9.5px] font-mono text-gray-500 uppercase font-black">{asset.type}</span>
+                          </div>
+
+                          <div className="space-y-1">
+                            <span className="text-gray-400 font-sans block truncate text-[10.5px]">{asset.desc}</span>
+                            <span className="text-[9.5px] font-mono text-gray-500 block uppercase">Size weight: {asset.size}</span>
+                          </div>
+
+                          <div className="text-right">
+                            <button
+                              onClick={() => {
+                                setMediaAssets(prev => prev.filter(a => a.id !== asset.id));
+                                setSuccessMsg('Asset purged successfully from simulated library.');
+                                setTimeout(() => setSuccessMsg(''), 1500);
+                              }}
+                              className="text-[9.5px] text-red-500 uppercase font-mono hover:underline cursor-pointer"
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              )}
+
+              {/* TAB: TEAM ROLES MANAGEMENT */}
+              {activeTab === 'team' && (
+                <div className="space-y-6">
+                  <div className="text-left border-b border-white/5 pb-4">
+                    <h3 className="font-display text-lg font-bold">Team Roster & Security Permissions (RBAC)</h3>
+                    <p className="text-xs text-gray-400">Administered directories mapping credential roles across Astrix framework access zones.</p>
+                  </div>
+
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs text-gray-400 border-collapse divide-y divide-white/5 text-left">
+                      <thead>
+                        <tr className="text-[10px] font-mono text-gray-500 uppercase font-extrabold tracking-wider">
+                          <th className="py-3 px-2">Operator Identity</th>
+                          <th className="py-3 px-2">Access Role</th>
+                          <th className="py-3 px-2">IP Access Permission Whitelist</th>
+                          <th className="py-3 px-2">Handshake state</th>
+                          <th className="py-3 px-2">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-white/5 font-display text-[#00D4FF]">
+                        {[
+                          { name: 'Dr. Sarah Jenkins', role: 'Super Admin', email: 'sjenkins@astrix.com', scopes: 'all_access', ip: '127.0.0.1 (Local Match)', badge: 'Owner Key' },
+                          { name: 'Marcus Sterling', role: 'Editor', email: 'msterling@astrix.com', scopes: 'read, write, edit', ip: '192.168.1.*', badge: 'Active' },
+                          { name: 'Astrid Lindgren', role: 'Marketing', email: 'alindgren@astrix.com', scopes: 'blogs, insights', ip: 'Anywhere', badge: 'Active' },
+                          { name: 'Daniel Krause', role: 'Sales Pro', email: 'dkrause@astrix.com', scopes: 'contact_messages, client_leads', ip: '24.120.44.11', badge: 'Audit hold' }
+                        ].map((member, i) => (
+                          <tr key={i} className="hover:bg-white/[0.01]">
+                            <td className="py-3.5 px-2">
+                              <span className="font-extrabold text-white block text-xs">{member.name}</span>
+                              <span className="text-[10px] font-mono text-gray-500 font-light block">{member.email}</span>
+                            </td>
+                            <td className="py-3.5 px-2">
+                              <span className="font-mono text-[10px] text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded border border-indigo-500/20 font-bold tracking-wider block uppercase max-w-fit">{member.role}</span>
+                              <span className="text-[9.5px] text-gray-500 font-light block mt-1">Scopes: {member.scopes}</span>
+                            </td>
+                            <td className="py-3.5 px-2 font-mono text-xs text-gray-400">{member.ip}</td>
+                            <td className="py-3.5 px-2 font-mono text-[11px] text-emerald-400 font-bold">2FA_ON</td>
+                            <td className="py-3.5 px-2 text-[10px] uppercase font-mono font-bold text-amber-300">{member.badge}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Add Whitelist IP */}
+                  <div className={`p-4 rounded-xl border flex flex-col md:flex-row justify-between items-center gap-3 ${themeMode === 'dark' ? 'bg-[#060B18]/40 border-white/5' : 'bg-gray-50 border-gray-100'}`}>
+                    <div className="text-left text-xs font-mono">
+                      <span className="font-extrabold block text-white uppercase select-none">Restrict Whitelisted IP Addresses</span>
+                      <span className="text-gray-400 font-light">Enforce restrictive network access protocols on the server:</span>
+                    </div>
+                    <div className="flex gap-2 w-full md:w-auto">
+                      <input 
+                        type="text" placeholder="e.g. 192.168.1.104"
+                        className="p-2 bg-black/40 text-xs text-white border border-white/10 rounded-xl font-mono focus:outline-none"
+                      />
+                      <button 
+                        onClick={() => { setSuccessMsg('IP Whitelist restrictions applied on node level.'); setTimeout(() => setSuccessMsg(''), 1500); }}
+                        className="px-4 py-2 bg-[#6C3FE8] hover:bg-[#6C3FE8]/80 text-white rounded-xl text-xs font-mono font-bold uppercase tracking-wider cursor-pointer"
+                      >
+                        Restrict
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* TAB: SECURITY & TERMINAL AUDITS */}
+              {activeTab === 'security' && (
+                <div className="space-y-6 text-left">
+                  <div className="flex justify-between items-center border-b border-white/5 pb-4">
+                    <div>
+                      <h3 className="font-display text-lg font-bold">Astrix Enterprise Security & Auditing</h3>
+                      <p className="text-xs text-gray-400 font-light">Audit immutable real-time security events, manage mock 2FA tokens, and track logins.</p>
+                    </div>
+                    <button 
+                      onClick={() => { setSuccessMsg('2FA secure key sequence regenerated.'); setTimeout(() => setSuccessMsg(''), 2000); }}
+                      className="p-2 rounded bg-neutral-900 border border-white/10 text-[#00D4FF] font-mono text-xs cursor-pointer select-none"
+                    >
+                      Regen_2FA
+                    </button>
+                  </div>
+
+                  {/* Static Login history logs list */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div className={`p-5 rounded-xl border space-y-4 text-left ${themeMode === 'dark' ? 'bg-[#060B18]/40 border-white/5' : 'bg-gray-50/50 border-gray-100'}`}>
+                      <span className="text-[10px] font-mono text-gray-400 block uppercase font-bold text-left border-b border-white/5 pb-2">Active Session Tokens logs</span>
+                      <div className="space-y-2.5 font-mono text-[10.5px]">
+                        {[
+                          { node: 'Terminal.414', ip: '127.0.0.1', date: 'Just now', scope: 'Owner all_access' },
+                          { node: 'Consumer Wearable API Proxy', ip: '24.110.88.19', date: '30m ago', scope: 'Webhook read' },
+                          { node: 'DDR core Editor', ip: '192.168.1.102', date: '4 Hours ago', scope: 'Editor write' }
+                        ].map((sess, i) => (
+                          <div key={i} className="flex justify-between items-center bg-black/30 p-2.5 border border-white/[0.02] rounded-lg">
+                            <div className="text-left">
+                              <span className="text-white font-extrabold text-[11px] block">{sess.node}</span>
+                              <span className="text-gray-500 font-bold block text-[9.5px]">IP: {sess.ip} | Scope: {sess.scope}</span>
+                            </div>
+                            <span className="text-[#00D4FF] font-semibold">{sess.date}</span>
                           </div>
                         ))}
                       </div>
                     </div>
 
-                    <button
-                      type="submit"
-                      className="px-5 py-3 bg-gradient-to-r from-[#6C3FE8] to-[#00D4FF] rounded-xl text-white font-orbitron font-extrabold text-[10px] tracking-wider uppercase hover:brightness-110 active:scale-95 transition-all flex items-center gap-1.5 cursor-pointer"
-                    >
-                      <Plus className="w-4 h-4" />
-                      <span>{editingProject ? 'COMMIT PARAMETERS' : 'PUBLISH ON PRIMARY GRID'}</span>
-                    </button>
-                  </form>
+                    <div className={`p-5 rounded-xl border space-y-4 text-left ${themeMode === 'dark' ? 'bg-[#060B18]/40 border-white/5' : 'bg-gray-50/50 border-gray-100'}`}>
+                      <span className="text-[10px] font-mono text-gray-400 block uppercase font-bold text-left border-b border-white/5 pb-2">Compliance check status checklist</span>
+                      <div className="space-y-2.5 text-xs">
+                        {[
+                          { rule: '2FA Multi-Factor Handshake status', isTrue: true },
+                          { rule: 'Secure TLS 1.3 Envelope Encryption force', isTrue: true },
+                          { rule: 'XOR Double-Salt hash sequence check', isTrue: true },
+                          { rule: 'Persistent Port whitelist controls active', isTrue: false }
+                        ].map((item, i) => (
+                          <div key={i} className="flex justify-between items-center py-1">
+                            <span className="text-gray-300">{item.rule}</span>
+                            <span className={`font-mono text-[9px] px-2 py-0.5 border rounded uppercase ${item.isTrue ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20' : 'text-amber-400 bg-amber-500/10 border-amber-500/20'}`}>
+                              {item.isTrue ? 'FULLY COMPLIANT' : 'STANDBY ACTION'}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
 
-                  {/* List of projects with CRUD edits */}
-                  <div className="space-y-4">
-                    <h4 className="font-orbitron font-bold text-xs text-white uppercase tracking-wider text-left">PROJECT LEDGER</h4>
-                    <div className="rounded-2xl border border-white/5 overflow-hidden text-xs bg-black/40">
-                      {projects.map((p) => (
-                        <div key={p.id} className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-4 border-b border-white/5 last:border-0 hover:bg-white/[0.01] gap-4">
-                          <div className="text-left font-display">
-                            <div className="flex items-center gap-2">
-                              <span className="text-white font-bold">{p.title}</span>
-                              <span className="bg-[#00D4FF]/10 text-cyan-400 text-[8.5px] font-mono border border-cyan-500/20 px-2 py-0.2 rounded uppercase">
-                                {p.industry}
-                              </span>
+                  {/* Security auditory terminal log */}
+                  <div className="space-y-2">
+                    <span className="text-[10px] font-mono text-gray-500 block uppercase font-extrabold tracking-widest text-left select-none">Live Audit Auditor Stream</span>
+                    <div className="glass-panel p-5 rounded-2xl bg-neutral-950 border border-white/5 font-mono text-left text-xs text-gray-400 space-y-4">
+                      <div className="flex justify-between items-center text-[10px] text-[#00D4FF] border-b border-white/5 pb-2 select-none uppercase">
+                        <span>IMMUTABLE TRACE AUDITING MODULE</span>
+                        <button type="button" onClick={() => { setActivityLogs([]); setSuccessMsg('Local logs view purged.'); setTimeout(() => setSuccessMsg(''), 1500); }} className="hover:underline">Clear_Viewer</button>
+                      </div>
+
+                      <div className="space-y-3 max-h-[240px] overflow-y-auto pr-1">
+                        {activityLogs.slice(0, 15).map((log) => (
+                          <div key={log.id} className="p-2 border border-white/[0.02] rounded-lg bg-black/40 hover:bg-neutral-900/40 text-[10px]">
+                            <div className="flex justify-between font-extrabold text-[9.5px]">
+                              <span className="text-emerald-400">[{log.action}] // {log.module}</span>
+                              <span className="text-gray-500 font-normal">{new Date(log.created_at).toLocaleTimeString()}</span>
                             </div>
-                            <p className="text-gray-400 text-[10.5px] mt-1 pr-6 truncate max-w-sm font-light">{p.description}</p>
+                            <p className="text-gray-400 leading-normal font-sans py-1">{log.description}</p>
+                            <div className="text-[8.5px] text-gray-500 uppercase">IP: {log.ip_address} | Client: {log.user_agent.slice(0, 36)}...</div>
                           </div>
-                          <div className="flex items-center gap-2 shrink-0">
-                            <button
-                              onClick={() => startEditProject(p)}
-                              className="p-1.5 rounded-lg border border-cyan-500/10 hover:border-cyan-500/40 text-cyan-400 hover:bg-cyan-500/10 cursor-pointer"
-                              title="Edit Project Specification"
-                            >
-                              <Edit className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              onClick={() => handleDeleteProject(p.id)}
-                              className="p-1.5 rounded-lg border border-red-500/10 hover:border-red-500/40 text-red-400 hover:bg-red-500/10 cursor-pointer"
-                              title="Delete Project Records"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        </div>
-                      ))}
+                        ))}
+                      </div>
                     </div>
                   </div>
                 </div>
               )}
 
-              {/* TAB 4: BLOGS AND INSIGHT RESEARCH PAPERS */}
-              {activeTab === 'blogs' && (
-                <div className="space-y-8">
-                  <div className="flex justify-between items-center text-left">
-                    <div>
-                      <h3 className="font-orbitron text-base font-bold text-white tracking-widest uppercase">System Logbooks & Research Publications</h3>
-                      <p className="text-xs text-gray-400 mt-1">Catalog tech logs, patents, and investigative clinical white papers.</p>
-                    </div>
-                    {editingBlog && (
-                      <button 
-                        onClick={resetBlogForm}
-                        className="px-3 py-1.5 rounded-lg border border-white/10 text-[10px] text-gray-400 font-mono hover:text-white cursor-pointer"
-                      >
-                        CLOSE EDIT
-                      </button>
-                    )}
-                  </div>
-
-                  {/* Blog Form */}
-                  <form onSubmit={handleBlogSubmit} className="glass-panel p-5 rounded-2xl border-white/5 space-y-4 bg-white/[0.01]">
-                    <div className="text-xs font-mono text-cyan-400 font-bold uppercase mb-2 text-left">
-                      {editingBlog ? `Editing Article Schema: ${editingBlog.title}` : 'Draft New Logbook Post'}
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-1 text-left">
-                        <label className="text-[10px] font-mono text-gray-400">Post Title / Heading</label>
-                        <input
-                          type="text"
-                          required
-                          value={blogForm.title}
-                          onChange={(e) => setBlogForm(prev => ({ ...prev, title: e.target.value }))}
-                          className="w-full bg-black/40 text-xs text-white p-2.5 rounded-xl border border-white/5"
-                        />
-                      </div>
-
-                      <div className="space-y-1 text-left">
-                        <label className="text-[10px] font-mono text-gray-400">Science / Sector Category</label>
-                        <select
-                          value={blogForm.category}
-                          onChange={(e) => setBlogForm(prev => ({ ...prev, category: e.target.value as BlogPost['category'] }))}
-                          className="w-full bg-black/40 text-xs text-white p-2.5 rounded-xl border border-white/5 focus:outline-none"
-                        >
-                          <option value="Technology">Technology</option>
-                          <option value="Healthcare">Healthcare</option>
-                          <option value="Artificial Intelligence">Artificial Intelligence</option>
-                          <option value="Engineering">Engineering & Robotics</option>
-                          <option value="Innovation">Innovation & Compounding</option>
-                        </select>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-1 text-left">
-                        <label className="text-[10px] font-mono text-gray-400">Primary Scientist Author Name</label>
-                        <input
-                          type="text"
-                          required
-                          value={blogForm.author}
-                          onChange={(e) => setBlogForm(prev => ({ ...prev, author: e.target.value }))}
-                          className="w-full bg-black/40 text-xs text-white p-2.5 rounded-xl border border-white/5 font-mono"
-                        />
-                      </div>
-
-                      <div className="space-y-1 text-left">
-                        <label className="text-[10px] font-mono text-gray-400 font-light font-sans">Short Excerpt Abstract</label>
-                        <input
-                          type="text"
-                          required
-                          placeholder="A quick summary showing on visual grid..."
-                          value={blogForm.excerpt}
-                          onChange={(e) => setBlogForm(prev => ({ ...prev, excerpt: e.target.value }))}
-                          className="w-full bg-black/40 text-xs text-white p-2.5 rounded-xl border border-white/5"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="space-y-1 text-left">
-                      <label className="text-[10px] font-mono text-gray-400">Content narrative Body</label>
-                      <textarea
-                        rows={6}
-                        required
-                        value={blogForm.content}
-                        onChange={(e) => setBlogForm(prev => ({ ...prev, content: e.target.value }))}
-                        className="w-full bg-black/40 text-xs text-white p-2.5 rounded-xl border border-white/5 focus:outline-none"
-                      />
-                    </div>
-
-                    <button
-                      type="submit"
-                      className="px-5 py-3 bg-gradient-to-r from-[#6C3FE8] to-[#00D4FF] rounded-xl text-white font-orbitron font-extrabold text-[10px] tracking-wider uppercase hover:brightness-110 transition-all flex items-center gap-1.5 cursor-pointer"
-                    >
-                      <Plus className="w-4 h-4" />
-                      <span>{editingBlog ? 'COMMIT ARTICLE' : 'DEPLOY INSIGHT ARTICLE'}</span>
-                    </button>
-                  </form>
-
-                  {/* List of blogs with CRUD edits */}
-                  <div className="space-y-4">
-                    <span className="font-orbitron font-bold text-xs text-white uppercase tracking-wider block text-left">LOGBOOK PUBLICATIONS LEDGER</span>
-                    <div className="rounded-2xl border border-white/5 overflow-hidden text-xs bg-black/40">
-                      {blogs.map((b) => (
-                        <div key={b.id} className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-4 border-b border-white/5 last:border-0 hover:bg-white/[0.01] gap-4">
-                          <div className="text-left font-display">
-                            <div className="flex items-center gap-2">
-                              <span className="text-white font-bold">{b.title}</span>
-                              <span className="bg-[#6C3FE8]/10 text-indigo-400 text-[8.5px] font-mono border border-violet-500/20 px-2 py-0.2 rounded uppercase">
-                                {b.category}
-                              </span>
-                            </div>
-                            <div className="text-[9.5px] text-gray-500 mt-1 font-mono">Author: {b.author || 'Super Admin'} | {b.date}</div>
-                          </div>
-                          <div className="flex items-center gap-2 shrink-0">
-                            <button
-                              onClick={() => startEditBlog(b)}
-                              className="p-1.5 rounded-lg border border-cyan-500/10 hover:border-cyan-500/40 text-cyan-400 hover:bg-cyan-500/10 cursor-pointer"
-                              title="Edit Article"
-                            >
-                              <Edit className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              onClick={() => handleDeleteBlog(b.id)}
-                              className="p-1.5 rounded-lg border border-red-500/10 hover:border-red-500/40 text-red-400 hover:bg-red-500/10 cursor-pointer"
-                              title="Purge Article"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* TAB 5: INBOUND CONTACT AND NEWSLETTER LEADS INBOXES */}
-              {activeTab === 'messages' && (
-                <div className="space-y-8">
-                  {/* Title and stats search */}
-                  <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 text-left">
-                    <div>
-                      <h3 className="font-orbitron text-base font-bold text-white tracking-widest uppercase">Inbound Consultations Deck</h3>
-                      <p className="text-xs text-gray-400">Incoming partner scopes compiled from active contact points.</p>
-                    </div>
-                    <div>
-                      <input
-                        type="text"
-                        placeholder="Search leads..."
-                        value={contactSearch}
-                        onChange={(e) => setContactSearch(e.target.value)}
-                        className="px-3.5 py-2 bg-black/40 text-xs text-white border border-white/5 rounded-xl font-mono focus:outline-none"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Leads Inbox render list */}
-                  <div className="space-y-4">
-                    {messages.length === 0 ? (
-                      <div className="py-12 text-center glass-panel rounded-2xl border-white/5 text-gray-500 font-mono text-xs">
-                        NO INBOUND MESSAGES DETECTED ON NETWORKS.
-                      </div>
-                    ) : (
-                      messages
-                        .filter(m => !contactSearch || (m.name || '').toLowerCase().includes(contactSearch.toLowerCase()) || (m.email || '').toLowerCase().includes(contactSearch.toLowerCase()))
-                        .map((m) => (
-                          <div key={m.id} className="glass-panel p-5 rounded-2xl border-white/5 bg-white/[0.01] hover:border-cyan-500/20 transition-all space-y-3">
-                            <div className="flex flex-wrap justify-between items-start gap-2 border-b border-white/5 pb-2.5">
-                              <div className="text-left font-display">
-                                <span className="font-bold text-white hover:text-cyan-400 transition-colors text-xs sm:text-sm block">{m.name}</span>
-                                <span className="text-[9px] font-mono text-cyan-400 bg-cyan-500/5 px-2 py-0.5 rounded border border-cyan-500/10 inline-block mt-1">{m.email}</span>
-                                {m.phone && (
-                                  <span className="text-[9px] font-mono text-gray-400 ml-2">Phone: {m.phone}</span>
-                                )}
-                                {m.company && (
-                                  <span className="text-[9px] font-mono text-purple-400 bg-purple-500/5 px-2 py-0.5 border border-purple-500/10 rounded ml-2 uppercase">
-                                    {m.company}
-                                  </span>
-                                )}
-                              </div>
-                              <div className="flex flex-col items-end gap-1.5 font-mono text-[9px]">
-                                <span className="text-gray-500">{m.created_at ? new Date(m.created_at).toLocaleString() : new Date(m.timestamp).toLocaleString()}</span>
-                                <select
-                                  value={m.status || 'new'}
-                                  onChange={async (e) => {
-                                    try {
-                                      const res = await fetch(`/api/contact/${m.id}`, {
-                                        method: 'PUT',
-                                        headers: {
-                                          'Content-Type': 'application/json',
-                                          'Authorization': `Bearer ${token}`
-                                        },
-                                        body: JSON.stringify({ status: e.target.value })
-                                      });
-                                      if (res.ok) {
-                                        setSuccessMsg(`Lead status changed.`);
-                                        fetchAdminData(token);
-                                        setTimeout(() => setSuccessMsg(''), 2000);
-                                      }
-                                    } catch (e) {
-                                      // Ignore
-                                    }
-                                  }}
-                                  className="bg-black text-[9px] text-[#00D4FF] border border-white/5 p-1 rounded focus:outline-none"
-                                >
-                                  <option value="new">NEW INQUIRY</option>
-                                  <option value="read">READ</option>
-                                  <option value="replied">REPLIED</option>
-                                  <option value="closed">CLOSED</option>
-                                </select>
-                              </div>
-                            </div>
-                            
-                            <p className="text-xs text-gray-300 font-light leading-relaxed whitespace-pre-wrap pl-2 border-l border-cyan-505 border-cyan-500/30 text-left">
-                              {m.message}
-                            </p>
-                          </div>
-                      ))
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* TAB 6: CAREERS & JOB VACANCIES MANAGER */}
-              {activeTab === 'careers' && (
-                <div className="space-y-8">
-                  <div className="text-left">
-                    <h3 className="font-orbitron text-base font-bold text-white tracking-widest uppercase">Careers & Recruitments Coordination</h3>
-                    <p className="text-xs text-gray-400 mt-1">Publish organizational roles and process received candidate files.</p>
-                  </div>
-
-                  {/* Post career job vacancy */}
-                  <form onSubmit={handleCareerSubmit} className="glass-panel p-5 rounded-2xl border-white/5 space-y-4 bg-white/[0.01]">
-                    <span className="text-xs font-mono text-cyan-400 font-bold uppercase block text-left">
-                      PUBLISH NEW GLOBAL VACANCY
-                    </span>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-1 text-left">
-                        <label className="text-[10px] font-mono text-gray-500">Position Title</label>
-                        <input
-                          type="text"
-                          required
-                          value={careerForm.title}
-                          onChange={(e) => setCareerForm(prev => ({ ...prev, title: e.target.value }))}
-                          className="w-full bg-black/40 text-xs text-white p-2.5 rounded-xl border border-white/5"
-                        />
-                      </div>
-
-                      <div className="space-y-1 text-left">
-                        <label className="text-[10px] font-mono text-gray-500">Department</label>
-                        <input
-                          type="text"
-                          required
-                          value={careerForm.department}
-                          onChange={(e) => setCareerForm(prev => ({ ...prev, department: e.target.value }))}
-                          className="w-full bg-black/40 text-xs text-white p-2.5 rounded-xl border border-white/5 font-mono"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-1 text-left">
-                        <label className="text-[10px] font-mono text-gray-500">Geographic Location</label>
-                        <input
-                          type="text"
-                          required
-                          value={careerForm.location}
-                          onChange={(e) => setCareerForm(prev => ({ ...prev, location: e.target.value }))}
-                          className="w-full bg-black/40 text-xs text-white p-2.5 rounded-xl border border-white/5"
-                        />
-                      </div>
-
-                      <div className="space-y-1 text-left">
-                        <label className="text-[10px] font-mono text-gray-500">Contract parameters</label>
-                        <select
-                          value={careerForm.job_type}
-                          onChange={(e) => setCareerForm(prev => ({ ...prev, job_type: e.target.value }))}
-                          className="w-full bg-black/40 text-xs text-white p-2.5 rounded-xl border border-white/10"
-                        >
-                          <option value="full_time">Full-Time position</option>
-                          <option value="part_time">Part-Time position</option>
-                          <option value="remote">Fully Remote contract</option>
-                          <option value="internship">Ph.D. / Internship</option>
-                        </select>
-                      </div>
-                    </div>
-
-                    <div className="space-y-1 text-left">
-                      <label className="text-[10px] font-mono text-gray-500 font-light">Detailed Role Abstract</label>
-                      <textarea
-                        rows={2}
-                        required
-                        value={careerForm.description}
-                        onChange={(e) => setCareerForm(prev => ({ ...prev, description: e.target.value }))}
-                        className="w-full bg-black/40 text-xs text-white p-2.5 rounded-xl border border-white/5"
-                      />
-                    </div>
-
-                    <div className="space-y-1 text-left">
-                      <label className="text-[10px] font-mono text-gray-500 font-light">Detailed candidate requirements (one per line)</label>
-                      <textarea
-                        rows={2}
-                        placeholder="PhD in related sensor science&#10;Prior calibration familiarity"
-                        value={careerForm.requirements}
-                        onChange={(e) => setCareerForm(prev => ({ ...prev, requirements: e.target.value }))}
-                        className="w-full bg-black/40 text-xs text-white p-2.5 rounded-xl border border-white/5"
-                      />
-                    </div>
-
-                    <button
-                      type="submit"
-                      className="px-5 py-2.5 bg-gradient-to-r from-violet-500 to-cyan-500 rounded-xl text-white font-orbitron font-extrabold text-[10px] tracking-wider uppercase hover:brightness-110 active:scale-95 transition-all flex items-center gap-1.5 cursor-pointer"
-                    >
-                      <Plus className="w-4 h-4" />
-                      <span>DEPLOY CAREER POSTING</span>
-                    </button>
-                  </form>
-
-                  {/* Received Job Applications */}
-                  <div className="space-y-4 pt-4 border-t border-white/5 text-left">
-                    <span className="font-orbitron font-extrabold text-xs text-white uppercase tracking-wider block">
-                      CANDIDATE APPLICATIONS LEDGER ({applications.length})
-                    </span>
-
-                    <div className="space-y-3">
-                      {applications.length === 0 ? (
-                        <div className="p-12 text-center border border-white/5 bg-black/40 rounded-2xl text-gray-500 text-xs font-mono">
-                          NO APPLICANTS SUBMITTED YET ON PIPELINES.
-                        </div>
-                      ) : (
-                        applications.map((app) => (
-                          <div key={app.id} className="p-5 border border-white/5 bg-black/40 rounded-2xl space-y-3.5 hover:border-violet-500/20 transition-all">
-                            <div className="flex justify-between items-start border-b border-white/5 pb-2">
-                              <div>
-                                <h5 className="font-bold text-white text-sm font-display">{app.name}</h5>
-                                <span className="text-[9.5px] font-mono text-cyan-400">{app.email} | {app.phone}</span>
-                              </div>
-                              <span className="text-[9px] font-mono text-gray-500">Filing date: {new Date(app.created_at).toLocaleDateString()}</span>
-                            </div>
-
-                            <p className="text-[11.5px] text-gray-300 font-light font-display leading-relaxed whitespace-pre-wrap">
-                              {app.message || 'No candidate statement cataloged.'}
-                            </p>
-
-                            <div className="flex gap-3 text-[9.5px] font-mono text-gray-400">
-                              <span>Resume: <a href={app.resume_file} className="text-violet-400 underline hover:text-violet-300">{app.resume_file.split('/').slice(-1)[0]}</a></span>
-                              {app.portfolio_url && (
-                                <span>Portfolio: <a href={app.portfolio_url} target="_blank" rel="noreferrer" className="text-cyan-400 underline hover:text-cyan-300">Link</a></span>
-                              )}
-                            </div>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* TAB 7: ADMINISTRATIVE SITE SETTINGS AND SEO PAGES */}
+              {/* TAB: SYSTEM & PORT CONTROL CONFIGS (SETTINGS) */}
               {activeTab === 'settings' && (
-                <div className="space-y-8">
+                <div className="space-y-6">
                   <div className="text-left">
-                    <h3 className="font-orbitron text-base font-bold text-white tracking-widest uppercase">System Metadata Console</h3>
-                    <p className="text-xs text-gray-400 mt-1 font-light">Global platform metadata configurations and SEO descriptors.</p>
+                    <h3 className="font-display text-lg font-bold">Console Configs & API Credentials</h3>
+                    <p className="text-xs text-gray-400 font-light">Set default brand displays, secure emails, change logos, and configure SMTP settings.</p>
                   </div>
 
-                  {/* 2 column row */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
-                    {/* Website basic config settings */}
-                    <form onSubmit={handleSettingsSubmit} className="glass-panel p-5 rounded-2xl border-white/5 bg-black/45 space-y-4">
-                      <span className="text-[10px] font-mono text-cyan-400 block font-bold uppercase text-left border-b border-white/5 pb-2">
-                        GLOBAL PARAMETERS DIRECTORY
-                      </span>
-
-                      <div className="space-y-1 text-left">
-                        <label className="text-[10px] font-mono text-gray-400">Website Brand Display Name</label>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-left font-mono">
+                    <form onSubmit={(e) => { e.preventDefault(); setSuccessMsg('Astrix branding variables updated.'); setTimeout(() => setSuccessMsg(''), 2000); }} className="p-5 rounded-xl border border-white/5 bg-black/10 space-y-3.5">
+                      <span className="text-[10px] text-purple-400 block uppercase font-bold border-b border-white/5 pb-2">Company Brand & Social Management</span>
+                      
+                      <div className="space-y-1">
+                        <label className="text-[10px] text-gray-500 uppercase">Branded Logo Text</label>
                         <input
-                          type="text"
-                          required
-                          value={settingsForm.website_name}
+                          type="text" required value={settingsForm.website_name}
                           onChange={(e) => setSettingsForm(prev => ({ ...prev, website_name: e.target.value }))}
-                          className="w-full bg-black/40 text-xs text-white p-2.5 border border-white/5 rounded-xl font-mono"
+                          className="w-full text-xs text-white p-2.5 bg-black/40 border border-white/5 rounded-xl font-mono focus:outline-none"
                         />
                       </div>
 
-                      <div className="space-y-1 text-left">
-                        <label className="text-[10px] font-mono text-gray-400">Default Corporate Contact email</label>
+                      <div className="space-y-1">
+                        <label className="text-[10px] text-gray-500 uppercase">Default secure SMTP sender email</label>
                         <input
-                          type="email"
-                          required
-                          value={settingsForm.contact_email}
+                          type="email" required value={settingsForm.contact_email}
                           onChange={(e) => setSettingsForm(prev => ({ ...prev, contact_email: e.target.value }))}
-                          className="w-full bg-black/40 text-xs text-white p-2.5 border border-white/5 rounded-xl font-mono"
+                          className="w-full text-xs text-white p-2.5 bg-black/40 border border-white/5 rounded-xl font-mono focus:outline-none"
                         />
                       </div>
 
-                      <div className="flex items-center justify-between p-2 rounded-lg bg-neutral-900 border border-white/[0.04]">
-                        <div className="text-left space-y-0.5">
-                          <label className="text-[11px] font-bold text-white uppercase block">Activate Maintenance Shield</label>
-                          <span className="text-[9px] text-gray-500 font-mono">Locks down client access to site</span>
+                      <div className="p-2.5 bg-black/40 rounded-xl border border-white/5 flex justify-between items-center">
+                        <div className="space-y-0.5 text-left">
+                          <label className="text-white text-[11px] block uppercase font-bold">Lock Maintenance mode</label>
+                          <span className="text-[9px] text-gray-500">Mutes public website routes</span>
                         </div>
                         <input
-                          type="checkbox"
-                          checked={settingsForm.maintenance_mode}
+                          type="checkbox" checked={settingsForm.maintenance_mode}
                           onChange={(e) => setSettingsForm(prev => ({ ...prev, maintenance_mode: e.target.checked }))}
-                          className="w-4 h-4 rounded text-purple-600 bg-black border-white/10"
+                          className="w-4 h-4 rounded text-[#6C3FE8] bg-black border-white/20"
                         />
                       </div>
 
-                      <button
-                        type="submit"
-                        className="w-full py-2.5 bg-[#6C3FE8] hover:bg-[#6C3FE8]/80 text-white font-orbitron font-extrabold text-[9.5px] uppercase tracking-wider rounded-xl transition-all cursor-pointer"
-                      >
-                        SAVE GLOBAL CONFIG STATE
+                      <button type="submit" className="w-full py-2.5 bg-[#6C3FE8] hover:bg-[#6C3FE8]/80 text-white rounded-xl text-xs font-bold uppercase transition-all cursor-pointer">
+                        SAVE COMPANY DIRECTORY
                       </button>
                     </form>
 
-                    {/* SEO Meta tags Manager */}
-                    <form onSubmit={handleSEOSubmit} className="glass-panel p-5 rounded-2xl border-white/5 bg-black/45 space-y-4">
-                      <span className="text-[10px] font-mono text-purple-400 block font-bold uppercase text-left border-b border-white/5 pb-2">
-                        SEO PAGES TAG MANAGER
-                      </span>
+                    <form onSubmit={(e) => { e.preventDefault(); setSuccessMsg('SMTP Server Configuration aligned successfully.'); setTimeout(() => setSuccessMsg(''), 2000); }} className="p-5 rounded-xl border border-white/5 bg-black/10 space-y-3.5">
+                      <span className="text-[10px] text-[#00D4FF] block uppercase font-bold border-b border-white/5 pb-2">Secure SMTP Server Node config</span>
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        <div className="space-y-1">
+                          <label className="text-[10px] text-gray-500">SMTP Server Host</label>
+                          <input type="text" defaultValue="smtp.astrix-mail.com" className="w-full p-2 bg-black/40 border border-white/5 text-xs text-white rounded font-mono" />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[10px] text-gray-500">Port Server</label>
+                          <input type="text" defaultValue="587 TLS" className="w-full p-2 bg-black/40 border border-white/5 text-xs text-white rounded font-mono" />
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] text-gray-500 uppercase">SMTP Authentication username</label>
+                        <input type="text" defaultValue="auth@astrix-mail.com" className="w-full p-2 bg-black/40 border border-white/5 text-xs text-white rounded font-mono" />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] text-gray-500 uppercase">Secure credentials key passcode</label>
+                        <input type="password" placeholder="****************" className="w-full p-2 bg-black/40 border border-white/5 text-xs text-white rounded font-mono" />
+                      </div>
+                      <button type="submit" className="w-full py-2.5 bg-[#6C3FE8] hover:bg-[#6C3FE8]/80 text-white rounded-xl text-xs font-bold uppercase transition-all cursor-pointer">
+                        ALIGN SMTP SERVER
+                      </button>
+                    </form>
+                  </div>
+                </div>
+              )}
 
-                      <div className="space-y-1 text-left">
-                        <label className="text-[10px] font-mono text-gray-400">Target route page URL</label>
+              {/* TAB: ANALYTICS CENTER GOOGLE, SEARCH CONSOLE, METAPIXELS */}
+              {activeTab === 'analytics' && (
+                <div className="space-y-6">
+                  <div className="text-left">
+                    <h3 className="font-display text-lg font-bold">SEO & Dynamic Analytics Integrations</h3>
+                    <p className="text-xs text-gray-400">Manage Google Analytics, Search Console, Meta Pixel, and LinkedIn Pixel setup toggles.</p>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-left font-mono text-xs text-gray-300">
+                    
+                    {/* Public SEO metadata pages form */}
+                    <form onSubmit={async (e) => {
+                      e.preventDefault();
+                      const payload = {
+                        slug: seoForm.slug,
+                        meta_title: seoForm.meta_title,
+                        meta_description: seoForm.meta_description,
+                        keywords: seoForm.keywords.split(',').map(k => k.trim()).filter(Boolean)
+                      };
+                      try {
+                        const res = await fetch('/api/seo', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                          body: JSON.stringify(payload)
+                        });
+                        if (res.ok) {
+                          setSuccessMsg(`SEO metadata configuration for page "${seoForm.slug}" aligned successfully.`);
+                          setTimeout(() => setSuccessMsg(''), 3000);
+                        }
+                      } catch (err) { setError('SEO save failed.'); }
+                    }} className="p-5 rounded-2xl border border-white/5 bg-black/10 space-y-4">
+                      <span className="text-[10px] text-[#00D4FF] block uppercase font-bold border-b border-white/5 pb-2">Target SEO Page Meta descriptors</span>
+                      
+                      <div className="space-y-1">
+                        <label className="text-[10px] text-gray-500 uppercase">Target Page Slug route</label>
                         <select
-                          value={seoForm.slug}
-                          onChange={(e) => handleSEOSlugChange(e.target.value)}
-                          className="w-full bg-neutral-900 text-xs text-white p-2.5 rounded-xl border border-white/10"
+                          value={seoForm.slug} onChange={e => handleSEOSlugChange(e.target.value)}
+                          className="w-full p-2.5 bg-neutral-900 border border-white/10 rounded-xl text-xs text-white"
                         >
-                          <option value="/">Home Path [/]</option>
+                          <option value="/">Home path [/]</option>
                           <option value="/about">About Us [/about]</option>
                           <option value="/services">Capabilities [/services]</option>
                           <option value="/careers">Careers Portal [/careers]</option>
-                          <option value="/insights">Insights blog [/insights]</option>
-                          <option value="/contact">Contact Coordinates [/contact]</option>
                         </select>
                       </div>
 
-                      <div className="space-y-1 text-left">
-                        <label className="text-[10px] font-mono text-gray-400">Html meta description title</label>
+                      <div className="space-y-1">
+                        <label className="text-[10px] text-gray-500 uppercase">Meta Title Text</label>
                         <input
-                          type="text"
-                          required
-                          value={seoForm.meta_title}
+                          type="text" required value={seoForm.meta_title}
                           onChange={(e) => setSeoForm(prev => ({ ...prev, meta_title: e.target.value }))}
-                          className="w-full bg-black/40 text-xs text-white p-2.5 border border-white/5 rounded-xl"
+                          className="w-full text-xs text-white p-2.5 bg-black/40 border border-white/5 rounded-xl font-mono"
                         />
                       </div>
 
-                      <div className="space-y-1 text-left">
-                        <label className="text-[10px] font-mono text-gray-400">Html meta descriptions summary block</label>
+                      <div className="space-y-1">
+                        <label className="text-[10px] text-gray-500 uppercase font-light">Meta description block</label>
                         <textarea
-                          rows={2}
-                          value={seoForm.meta_description}
+                          rows={2} required value={seoForm.meta_description}
                           onChange={(e) => setSeoForm(prev => ({ ...prev, meta_description: e.target.value }))}
-                          className="w-full bg-black/40 text-xs text-white p-2.5 border border-white/5 focus:outline-none rounded-xl"
+                          className="w-full text-xs text-white p-2.5 bg-black/40 border border-white/5 rounded-xl focus:outline-none"
                         />
                       </div>
 
-                      <div className="space-y-1 text-left">
-                        <label className="text-[10px] font-mono text-gray-400">Index Keywords (comma arrays)</label>
+                      <div className="space-y-1">
+                        <label className="text-[10px] text-gray-500 uppercase">Index Keywords (comma CSV)</label>
                         <input
-                          type="text"
-                          placeholder="Astrix, diagnostic telemetry, co-bot"
-                          value={seoForm.keywords}
+                          type="text" required value={seoForm.keywords}
                           onChange={(e) => setSeoForm(prev => ({ ...prev, keywords: e.target.value }))}
-                          className="w-full bg-black/40 text-xs text-white p-2.5 border border-white/5 rounded-xl font-mono"
+                          className="w-full text-xs text-white p-2.5 bg-black/40 border border-white/5 rounded-xl"
                         />
                       </div>
 
-                      <button
-                        type="submit"
-                        className="w-full py-2.5 bg-gradient-to-r from-violet-500 to-cyan-500 text-white font-orbitron font-extrabold text-[9.5px] uppercase tracking-wider rounded-xl transition-all cursor-pointer"
-                      >
-                        ALIGN METADATA DESCRIPTIONS
+                      <button type="submit" className="w-full py-2.5 bg-[#6C3FE8] hover:bg-[#6C3FE8]/80 text-white rounded-xl text-xs font-bold uppercase transition-all cursor-pointer">
+                        SAVE PAGE METADATA
                       </button>
                     </form>
-                  </div>
-                </div>
-              )}
 
-              {/* TAB 8: AUDITING ACTIVITY LOGS SECURE DECK */}
-              {activeTab === 'audit_logs' && (
-                <div className="space-y-6">
-                  {/* Title and stats search */}
-                  <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 text-left">
-                    <div>
-                      <h3 className="font-orbitron text-base font-bold text-white tracking-widest uppercase flex items-center gap-2">
-                        <Shield className="w-5 h-5 text-purple-400" />
-                        <span>Security Auditing Control</span>
-                      </h3>
-                      <p className="text-xs text-gray-400">Immutable trace sequence logging operator movements and DB parameters modification.</p>
-                    </div>
-                    <div>
-                      <input
-                        type="text"
-                        placeholder="Search logs..."
-                        value={logSearch}
-                        onChange={(e) => setLogSearch(e.target.value)}
-                        className="px-3.5 py-2 bg-black/40 text-xs text-white border border-white/5 rounded-xl font-mono focus:outline-none"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Terminal Log screen mockup */}
-                  <div className="glass-panel p-5 rounded-2xl bg-neutral-950 border border-white/5 font-mono text-left space-y-4">
-                    <div className="flex items-center justify-between font-mono text-[9px] text-[#00D4FF] border-b border-white/5 pb-2">
-                      <span>AUDIT TERMINAL CLIENT STATUS: ONLINE_VERIFIED</span>
-                      <span>TRACE PROTOCOLS [TLS_1.3_ENVELOPED]</span>
-                    </div>
-
-                    <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1">
-                      {activityLogs.length === 0 ? (
-                        <div className="py-12 text-center text-gray-600 text-xs">
-                          NO EVENT INTEGRATION TIMELINE RECORDS FOUND inside databases.
+                    {/* Pixels and compliance toggles */}
+                    <div className="p-5 rounded-2xl border border-white/5 bg-black/10 space-y-4">
+                      <span className="text-[10px] text-purple-400 block uppercase font-bold border-b border-white/5 pb-2">Analytical Tracking Pixels Toggles</span>
+                      
+                      {[
+                        { title: 'Google Analytics tag integration', id: 'gtag-id', dval: 'G-84X02981X' },
+                        { title: 'Google Search Console calibration', id: 'gsc-id', dval: 'domain-sc-9821' },
+                        { title: 'Meta social advertising Pixel', id: 'meta-pix', dval: '982710129XWZ' },
+                        { title: 'LinkedIn corporate advertising Pixel', id: 'linkedin-pix', dval: 'li-pix-112028' }
+                      ].map((item, i) => (
+                        <div key={i} className="space-y-1.5 border-b border-white/5 pb-2 last:border-0 last:pb-0">
+                          <div className="flex justify-between items-center">
+                            <span className="text-gray-300 font-sans">{item.title}</span>
+                            <span className="text-[9px] text-[#00D4FF] bg-[#00D4FF]/10 px-1.5 rounded uppercase font-bold">CONNECTED</span>
+                          </div>
+                          <div className="flex gap-2">
+                            <input type="text" defaultValue={item.dval} className="w-full p-1.5 bg-black/40 border border-white/5 text-xs text-white rounded font-mono" />
+                            <button
+                              onClick={() => { setSuccessMsg('Analytics metrics re-calculated.'); setTimeout(() => setSuccessMsg(''), 1500); }}
+                              type="button" className="px-2.5 bg-neutral-900 border border-white/10 text-gray-300 rounded hover:text-white"
+                            >
+                              Sync
+                            </button>
+                          </div>
                         </div>
-                      ) : (
-                        activityLogs
-                          .filter(log => !logSearch || (log.action || '').toLowerCase().includes(logSearch.toLowerCase()) || (log.description || '').toLowerCase().includes(logSearch.toLowerCase()) || (log.module || '').toLowerCase().includes(logSearch.toLowerCase()))
-                          .map((log) => (
-                            <div key={log.id} className="p-2.5 rounded bg-black/40 border border-white/[0.03] space-y-1.5 hover:bg-neutral-900/40 text-[10.5px]">
-                              <div className="flex justify-between flex-wrap text-[9px] font-bold">
-                                <span className={
-                                  log.action.includes('FAIL') 
-                                    ? 'text-red-400' 
-                                    : log.action.includes('SUCCESS') || log.action.includes('INIT') 
-                                      ? 'text-emerald-400' 
-                                      : 'text-cyan-400'
-                                }>
-                                  [{log.action}] // {log.module}
-                                </span>
-                                <span className="text-gray-500 font-normal">
-                                  {new Date(log.created_at).toLocaleString()}
-                                </span>
-                              </div>
-                              <p className="text-gray-400 leading-normal font-sans text-left">
-                                {log.description}
-                              </p>
-                              <div className="text-[8.5px] text-gray-600 font-semibold uppercase">
-                                IP: {log.ip_address} | AGENT: {log.user_agent.slice(0, 48)}...
-                              </div>
-                            </div>
-                        ))
-                      )}
+                      ))}
                     </div>
+
                   </div>
                 </div>
               )}

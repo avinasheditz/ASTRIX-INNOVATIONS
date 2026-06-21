@@ -1,70 +1,117 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { 
-  Laptop, Activity, Wrench, BrainCircuit, ArrowUpRight, CheckCircle
-} from 'lucide-react';
+import * as Lucide from 'lucide-react';
+import { ArrowUpRight, CheckCircle } from 'lucide-react';
+
+const STATIC_SERVICES = [
+  {
+    id: 1,
+    name: 'Technology Solutions',
+    tagline: 'Enterprise-grade digital ecosystems.',
+    icon: Lucide.Laptop,
+    size: 'lg:col-span-8 md:col-span-12',
+    color: 'bg-white',
+    borderColor: 'border-blue-105',
+    iconBg: 'bg-blue-50/50',
+    iconColor: 'text-blue-600',
+    desc: 'We construct secure, highly responsive, distributed multi-platform software applications. Tailored especially for businesses requesting unified cloud architecture, absolute security compliance, and premium UX/UI interfaces.',
+    highlights: ['Custom Cloud-Native Architectures', 'Cross-Platform App Development', 'Unified API Integration & Security'],
+    stats: { label: 'Active Deployments', val: '24M+' }
+  },
+  {
+    id: 2,
+    name: 'AI & Machine Learning',
+    tagline: 'Cognitive systems integration.',
+    icon: Lucide.BrainCircuit,
+    size: 'lg:col-span-4 md:col-span-6',
+    color: 'bg-white',
+    borderColor: 'border-indigo-105',
+    iconBg: 'bg-indigo-50/50',
+    iconColor: 'text-indigo-600',
+    desc: 'Integrating deep predictive networks, local machine learning models, and automated logic blocks that run on hybrid clouds or directly on edge devices.',
+    highlights: ['Edge AI Analytics Modules', 'Custom NLP & Search Processing', 'Intelligent Predictive Diagnostics'],
+    stats: { label: 'Inference Velocity', val: '< 15ms' }
+  },
+  {
+    id: 3,
+    name: 'Healthcare Systems',
+    tagline: 'Encrypted telemetry interfaces.',
+    icon: Lucide.Activity,
+    size: 'lg:col-span-4 md:col-span-6',
+    color: 'bg-white',
+    borderColor: 'border-pink-105',
+    iconBg: 'bg-pink-50/50',
+    iconColor: 'text-pink-600',
+    desc: 'Designing end-to-end medical systems, certified software integrations, and real-time clinical dashboards that secure sensitive client data cleanly and efficiently.',
+    highlights: ['Secure Clinical Pipelines', 'Encrypted Biosensor Gateways', 'Modular Hospital Dashboard Integrations'],
+    stats: { label: 'Compliance Index', val: '99.9%' }
+  },
+  {
+    id: 4,
+    name: 'Smart Systems Engineering',
+    tagline: 'Precision kinetic controllers.',
+    icon: Lucide.Wrench,
+    size: 'lg:col-span-8 md:col-span-12',
+    color: 'bg-white',
+    borderColor: 'border-purple-105',
+    iconBg: 'bg-purple-50/50',
+    iconColor: 'text-purple-600',
+    desc: 'Developing innovative IoT automation gateways, smart machine controllers, and energy-efficient thermodynamic power cycles for advanced commercial operations.',
+    highlights: ['Low-Impact Wave Turbines', 'Continuous Predictive Maintenance IoT', 'Edge Programmable Controllers'],
+    stats: { label: 'Operational Accuracy', val: '99.98%' }
+  }
+];
 
 export default function ServicesSec() {
   const [activeCard, setActiveCard] = useState<number | null>(null);
+  const [services, setServices] = useState<any[]>(STATIC_SERVICES);
 
-  const services = [
-    {
-      id: 1,
-      name: 'Technology Solutions',
-      tagline: 'Enterprise-grade digital ecosystems.',
-      icon: Laptop,
-      size: 'lg:col-span-8 md:col-span-12',
-      color: 'bg-white',
-      borderColor: 'border-blue-105',
-      iconBg: 'bg-blue-50/50',
-      iconColor: 'text-blue-600',
-      desc: 'We construct secure, highly responsive, distributed multi-platform software applications. Tailored especially for businesses requesting unified cloud architecture, absolute security compliance, and premium UX/UI interfaces.',
-      highlights: ['Custom Cloud-Native Architectures', 'Cross-Platform App Development', 'Unified API Integration & Security'],
-      stats: { label: 'Active Deployments', val: '24M+' }
-    },
-    {
-      id: 2,
-      name: 'AI & Machine Learning',
-      tagline: 'Cognitive systems integration.',
-      icon: BrainCircuit,
-      size: 'lg:col-span-4 md:col-span-6',
-      color: 'bg-white',
-      borderColor: 'border-indigo-105',
-      iconBg: 'bg-indigo-50/50',
-      iconColor: 'text-indigo-600',
-      desc: 'Integrating deep predictive networks, local machine learning models, and automated logic blocks that run on hybrid clouds or directly on edge devices.',
-      highlights: ['Edge AI Analytics Modules', 'Custom NLP & Search Processing', 'Intelligent Predictive Diagnostics'],
-      stats: { label: 'Inference Velocity', val: '< 15ms' }
-    },
-    {
-      id: 3,
-      name: 'Healthcare Systems',
-      tagline: 'Encrypted telemetry interfaces.',
-      icon: Activity,
-      size: 'lg:col-span-4 md:col-span-6',
-      color: 'bg-white',
-      borderColor: 'border-pink-105',
-      iconBg: 'bg-pink-50/50',
-      iconColor: 'text-pink-600',
-      desc: 'Designing end-to-end medical systems, certified software integrations, and real-time clinical dashboards that secure sensitive client data cleanly and efficiently.',
-      highlights: ['Secure Clinical Pipelines', 'Encrypted Biosensor Gateways', 'Modular Hospital Dashboard Integrations'],
-      stats: { label: 'Compliance Index', val: '99.9%' }
-    },
-    {
-      id: 4,
-      name: 'Smart Systems Engineering',
-      tagline: 'Precision kinetic controllers.',
-      icon: Wrench,
-      size: 'lg:col-span-8 md:col-span-12',
-      color: 'bg-white',
-      borderColor: 'border-purple-105',
-      iconBg: 'bg-purple-50/50',
-      iconColor: 'text-purple-600',
-      desc: 'Developing innovative IoT automation gateways, smart machine controllers, and energy-efficient thermodynamic power cycles for advanced commercial operations.',
-      highlights: ['Low-Impact Wave Turbines', 'Continuous Predictive Maintenance IoT', 'Edge Programmable Controllers'],
-      stats: { label: 'Operational Accuracy', val: '99.98%' }
-    }
-  ];
+  useEffect(() => {
+    const fetchServices = async () => {
+      try {
+        const response = await fetch('/api/services');
+        if (response.ok) {
+          const data = await response.json();
+          if (Array.isArray(data) && data.length > 0) {
+            const mapped = data.map((srv: any, idx: number) => {
+              const IconComp = (Lucide as any)[srv.icon] || Lucide.Laptop;
+              const size = (idx === 0 || idx === 3 || idx % 4 === 0)
+                ? 'lg:col-span-8 md:col-span-12'
+                : 'lg:col-span-4 md:col-span-6';
+              
+              const iconColors = ['text-blue-600', 'text-indigo-600', 'text-pink-600', 'text-purple-600', 'text-emerald-600'];
+              const iconBgs = ['bg-blue-50/50', 'bg-indigo-50/50', 'bg-pink-50/50', 'bg-purple-50/50', 'bg-emerald-50/50'];
+              const colorIdx = idx % iconColors.length;
+
+              return {
+                id: srv.id || `srv-dyn-${idx}`,
+                name: srv.title,
+                tagline: srv.category || 'Enterprise Scale Ecosystems',
+                icon: IconComp,
+                size: size,
+                color: 'bg-white',
+                borderColor: 'border-gray-100',
+                iconBg: iconBgs[colorIdx],
+                iconColor: iconColors[colorIdx],
+                desc: srv.short_description,
+                highlights: srv.full_description
+                  ? srv.full_description.split('.').map((s: string) => s.trim()).filter((s: string) => s.length > 4).slice(0, 3)
+                  : ['Dynamic Capabilities Configured', 'High Reliability Metrics', 'Optimized Resource Allocation'],
+                stats: { label: 'Operational Status', val: '99.9% Uptime' }
+              };
+            });
+            setServices(mapped);
+          }
+        }
+      } catch (err) {
+        console.error('Error loading services:', err);
+      }
+    };
+
+    fetchServices();
+    window.addEventListener('astrix-data-updated', fetchServices);
+    return () => window.removeEventListener('astrix-data-updated', fetchServices);
+  }, []);
 
   return (
     <section id="services" className="py-24 relative overflow-hidden text-left border-t border-gray-100 bg-[#FBFCFD]">

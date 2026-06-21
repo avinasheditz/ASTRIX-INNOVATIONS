@@ -1,5 +1,56 @@
-import { useState, FormEvent } from 'react';
-import { Send, MapPin, Mail, MessageSquare, Linkedin, Twitter, Github, CheckCircle, Smartphone } from 'lucide-react';
+import React, { useState, useEffect, useRef, FormEvent } from 'react';
+import { Send, MapPin, Mail, MessageSquare, Linkedin, Twitter, Github, CheckCircle, Smartphone, Compass, Activity, ShieldAlert, Target } from 'lucide-react';
+
+const themeStyles = {
+  indigo: {
+    bg: 'bg-indigo-950/95',
+    border: 'border-indigo-500/20',
+    accent: '#4F46E5',
+    glowColor: 'rgba(79, 70, 229, 0.85)',
+    textColor: 'text-indigo-400',
+    badgeBg: 'bg-indigo-950/80 border-indigo-500/40 text-indigo-300',
+    lightGlow: 'bg-[#4F46E5]/10',
+    scopeBorder: 'border-indigo-500/30',
+    scopeBg: 'bg-[#030712]',
+    ringBorder: 'border-indigo-500/10',
+    sweepGradient: 'conic-gradient(from 0deg, transparent 50%, rgba(79, 70, 229, 0.08) 80%, rgba(79, 70, 229, 0.4) 100%)',
+    beamColor: 'bg-indigo-500',
+    targetBeacon: 'border-indigo-400/40',
+    targetCore: 'bg-indigo-400',
+  },
+  emerald: {
+    bg: 'bg-slate-950',
+    border: 'border-emerald-500/20',
+    accent: '#10B981',
+    glowColor: 'rgba(16, 185, 129, 0.85)',
+    textColor: 'text-emerald-400',
+    badgeBg: 'bg-emerald-950/80 border-emerald-500/40 text-emerald-300',
+    lightGlow: 'bg-[#10B981]/15',
+    scopeBorder: 'border-emerald-500/35',
+    scopeBg: 'bg-[#022C22]/10',
+    ringBorder: 'border-emerald-500/15',
+    sweepGradient: 'conic-gradient(from 0deg, transparent 50%, rgba(16, 185, 129, 0.08) 80%, rgba(16, 185, 129, 0.45) 100%)',
+    beamColor: 'bg-emerald-400',
+    targetBeacon: 'border-emerald-400/40',
+    targetCore: 'bg-emerald-400',
+  },
+  rose: {
+    bg: 'bg-zinc-950',
+    border: 'border-rose-500/20',
+    accent: '#F43F5E',
+    glowColor: 'rgba(244, 63, 94, 0.85)',
+    textColor: 'text-rose-400',
+    badgeBg: 'bg-rose-950/80 border-rose-500/40 text-rose-300',
+    lightGlow: 'bg-[#F43F5E]/10',
+    scopeBorder: 'border-rose-500/30',
+    scopeBg: 'bg-[#090506]',
+    ringBorder: 'border-rose-500/10',
+    sweepGradient: 'conic-gradient(from 0deg, transparent 50%, rgba(244, 63, 94, 0.08) 80%, rgba(244, 63, 94, 0.45) 100%)',
+    beamColor: 'bg-rose-500',
+    targetBeacon: 'border-rose-400/40',
+    targetCore: 'bg-rose-400',
+  },
+};
 
 export default function ContactSec() {
   const [formData, setFormData] = useState({
@@ -12,6 +63,41 @@ export default function ContactSec() {
   
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+
+  // Stateful interactive real radar parameters
+  const [radarTheme, setRadarTheme] = useState<'indigo' | 'emerald' | 'rose'>('indigo');
+  const [sweepSpeed, setSweepSpeed] = useState<2 | 4 | 8>(4);
+  const [azimuth, setAzimuth] = useState(245.8);
+  const [jitterLat, setJitterLat] = useState('37.77492');
+  const [jitterLng, setJitterLng] = useState('-122.41941');
+
+  useEffect(() => {
+    let lastTime = performance.now();
+    let frameId: number;
+    const update = (time: number) => {
+      const delta = time - lastTime;
+      lastTime = time;
+      
+      setAzimuth((prev) => {
+        const increment = (360 / (sweepSpeed * 1000)) * delta;
+        return parseFloat(((prev + increment) % 360).toFixed(1));
+      });
+      frameId = requestAnimationFrame(update);
+    };
+    
+    frameId = requestAnimationFrame(update);
+    return () => cancelAnimationFrame(frameId);
+  }, [sweepSpeed]);
+
+  useEffect(() => {
+    const jitterInterval = setInterval(() => {
+      const latOffset = (Math.random() - 0.5) * 0.00015;
+      const lngOffset = (Math.random() - 0.5) * 0.00015;
+      setJitterLat((37.77492 + latOffset).toFixed(5));
+      setJitterLng((-122.41941 + lngOffset).toFixed(5));
+    }, 450);
+    return () => clearInterval(jitterInterval);
+  }, []);
 
   const handleInputChange = (field: string, val: string) => {
     setFormData((prev) => ({ ...prev, [field]: val }));
@@ -126,110 +212,263 @@ export default function ContactSec() {
                   </div>
                 </div>
               </div>
-            </div>            {/* Radar Sweep Locator Animation */}
-            <div className="bg-white border border-gray-150/70 shadow-[0_4px_25px_rgba(0,0,0,0.02)] p-5 rounded-3xl relative overflow-hidden flex flex-col items-center justify-center py-6 h-64 hover:border-indigo-150 transition-all duration-300 group/radar">
-              
-              {/* Futuristic Cyber Grid Lines background */}
-              <div className="absolute inset-0 pointer-events-none opacity-[0.25] z-0" style={{
-                backgroundImage: 'radial-gradient(#94A3B8 1px, transparent 1px)',
-                backgroundSize: '16px 16px'
+            </div>            {/* Real Interactive Tactical Radar System Console */}
+            <div 
+              style={{ '--theme-glow': themeStyles[radarTheme].glowColor } as React.CSSProperties}
+              className={`${themeStyles[radarTheme].bg} border ${themeStyles[radarTheme].border} p-4 sm:p-5 rounded-3xl relative overflow-hidden flex flex-col justify-between h-[410px] shadow-[0_12px_40px_rgba(0,0,0,0.3)] transition-all duration-500 group/radar`}
+            >
+              <style>{`
+                @keyframes radar-sweep-${sweepSpeed} {
+                  from { transform: rotate(0deg); }
+                  to { transform: rotate(360deg); }
+                }
+                @keyframes radar-phosphor-glow {
+                  0% { opacity: 0.12; transform: scale(0.9); }
+                  2% { opacity: 1; transform: scale(1.15); filter: drop-shadow(0 0 10px var(--theme-glow)); }
+                  12% { opacity: 0.75; transform: scale(1.00); filter: drop-shadow(0 0 5px var(--theme-glow)); }
+                  50% { opacity: 0.18; }
+                  100% { opacity: 0.12; }
+                }
+                .animate-radar-sweep {
+                  animation: radar-sweep-${sweepSpeed} ${sweepSpeed}s linear infinite;
+                }
+                .animate-radar-glow-target {
+                  animation: radar-phosphor-glow ${sweepSpeed}s linear infinite;
+                }
+              `}</style>
+
+              {/* Cyber Grid Network Cover Pattern */}
+              <div className="absolute inset-0 pointer-events-none opacity-[0.04] z-0" style={{
+                backgroundImage: 'radial-gradient(#ffffff 1px, transparent 1px)',
+                backgroundSize: '12px 12px'
               }} />
 
-              {/* Glowing core background */}
-              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 bg-indigo-50/25 rounded-full filter blur-xl pointer-events-none z-0 group-hover/radar:bg-indigo-50/40 transition-colors" />
+              {/* Soft background glow */}
+              <div className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 ${themeStyles[radarTheme].lightGlow} rounded-full filter blur-2xl pointer-events-none z-0`} />
 
-              {/* Corner Tech Readouts (Micro telemetry data blocks) */}
-              <div className="absolute top-3 left-4 flex items-center gap-1.5 font-mono text-[7px] text-gray-400 font-bold select-none z-15">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                <span>SYS LOG &middot; STABLE</span>
-              </div>
-              <div className="absolute top-3 right-4 font-mono text-[7px] text-gray-400 font-semibold select-none z-15">
-                AZIMUTH: 224.85°
-              </div>
-              <div className="absolute bottom-3 left-4 font-mono text-[7px] text-gray-400 font-semibold select-none z-15">
-                LAT: 37.7749° N
-              </div>
-              <div className="absolute bottom-3 right-4 font-mono text-[7px] text-gray-400 font-semibold select-none z-15">
-                LNG: 122.4194° W
+              {/* Console Header Bar */}
+              <div className="flex items-center justify-between z-10 border-b border-slate-800/60 pb-2 relative">
+                <div className="flex items-center gap-1.5 font-mono text-[7.5px] tracking-wider text-slate-400 font-extrabold select-none">
+                  <Activity className={`w-3.5 h-3.5 ${themeStyles[radarTheme].textColor} animate-pulse`} />
+                  <span>INSTRUMENT LOGISTICAL PANEL // V4.8.1</span>
+                </div>
+                <div className={`font-mono text-[7.5px] uppercase font-bold tracking-widest px-1.5 py-0.5 rounded border border-slate-800 bg-slate-900/50 flex items-center gap-1.5 ${themeStyles[radarTheme].textColor}`}>
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  <span>GPS LINK: CALIBRATED</span>
+                </div>
               </div>
 
-              {/* Main Circular Radar Scanner Screen */}
-              <div className="relative w-40 h-40 rounded-full border border-gray-150/80 bg-slate-50/40 flex items-center justify-center p-0.5 z-10">
-                
-                {/* Simulated Scope Crosshairs */}
-                <div className="absolute inset-y-0 left-1/2 w-[1px] bg-gray-200/50 pointer-events-none" />
-                <div className="absolute inset-x-0 top-1/2 h-[1px] bg-gray-200/50 pointer-events-none" />
-                
-                {/* Concentric Scope Division Rings */}
-                <div className="absolute w-[80%] h-[80%] rounded-full border border-dashed border-gray-200/40" />
-                <div className="absolute w-[60%] h-[60%] rounded-full border border-gray-200/40" />
-                <div className="absolute w-[40%] h-[40%] rounded-full border border-dashed border-gray-200/30" />
-                <div className="absolute w-[20%] h-[20%] rounded-full border border-gray-200/50" />
+              {/* Main Scope Stage */}
+              <div className="relative flex-1 flex items-center justify-center my-3">
+                {/* Dial compass frame ring */}
+                <div className="absolute w-[184px] h-[184px] rounded-full border border-slate-800 bg-black/40 flex items-center justify-center shadow-inner">
+                  {/* Compass markers */}
+                  <span className="absolute top-1 font-mono text-[8.5px] font-bold text-slate-500 select-none">N</span>
+                  <span className="absolute right-1.5 font-mono text-[8.5px] font-bold text-slate-500 select-none">E</span>
+                  <span className="absolute bottom-1 font-mono text-[8.5px] font-bold text-slate-500 select-none">S</span>
+                  <span className="absolute left-1.5 font-mono text-[8.5px] font-bold text-slate-500 select-none">W</span>
 
-                {/* Rotating Conical Sweep Slider */}
-                <div 
-                  className="absolute inset-0 rounded-full pointer-events-none animate-radial-spin mix-blend-multiply opacity-70"
-                  style={{ 
-                    background: 'conic-gradient(from 0deg, transparent 50%, rgba(79, 70, 229, 0.12) 80%, rgba(79, 70, 229, 0.3) 100%)',
-                    animationDuration: '8s'
-                  }} 
-                />
+                  {/* High Accuracy Degrees Ticks */}
+                  <div className="absolute inset-4 rounded-full border border-slate-800/40 pointer-events-none" />
+                  <div className="absolute inset-8 rounded-full border border-slate-800/20 pointer-events-none" />
+                  <div className="absolute inset-12 rounded-full border border-slate-800/10 pointer-events-none" />
+                  
+                  {/* Scope screen area */}
+                  <div className={`relative w-[156px] h-[156px] rounded-full ${themeStyles[radarTheme].scopeBorder} ${themeStyles[radarTheme].scopeBg} border flex items-center justify-center overflow-hidden`}>
+                    
+                    {/* Concentric Scope Division Rings */}
+                    <div className={`absolute w-[80%] h-[80%] rounded-full border border-dashed ${themeStyles[radarTheme].ringBorder}`} />
+                    <div className={`absolute w-[60%] h-[60%] rounded-full border ${themeStyles[radarTheme].ringBorder}`} />
+                    <div className={`absolute w-[40%] h-[40%] rounded-full border border-dashed ${themeStyles[radarTheme].ringBorder}`} />
+                    <div className={`absolute w-[20%] h-[20%] rounded-full border ${themeStyles[radarTheme].ringBorder}`} />
 
-                {/* Sweeping Edge Scanner Beam Flare */}
-                <div 
-                  className="absolute inset-0 rounded-full pointer-events-none animate-radial-spin"
-                  style={{ animationDuration: '8s' }}
-                >
-                  <div className="absolute right-0 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-indigo-500/10 border border-indigo-400/40 scale-125 blur-[1px]" />
-                  <div className="absolute right-0 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-indigo-500 shadow-[0_0_8px_rgba(79,70,229,0.8)]" />
+                    {/* Scope Crosshairs */}
+                    <div className="absolute inset-y-0 left-1/2 w-[0.75px] bg-slate-800/55 pointer-events-none" />
+                    <div className="absolute inset-x-0 top-1/2 h-[0.75px] bg-slate-800/55 pointer-events-none" />
+
+                    {/* Sweep rotating sector line */}
+                    <div 
+                      className="absolute inset-0 rounded-full pointer-events-none animate-radar-sweep origin-center z-15"
+                      style={{ 
+                        background: themeStyles[radarTheme].sweepGradient,
+                      }} 
+                    />
+
+                    {/* Sweep front laser line */}
+                    <div 
+                      className="absolute inset-0 rounded-full pointer-events-none animate-radar-sweep origin-center z-20"
+                    >
+                      <div className={`absolute right-1/2 bottom-1/2 top-0 w-[0.75px] ${themeStyles[radarTheme].beamColor} opacity-90 origin-bottom`} />
+                    </div>
+
+                    {/* TARGETS (SWEPT SYNCHRONIZED PHOSPHOR BLIPS) */}
+
+                    {/* TARGET 1: ASTRIX CO-LOCATION HQ */}
+                    <div 
+                      className="absolute z-25 group/target cursor-pointer"
+                      style={{ 
+                        left: '27.4%', 
+                        top: '27.4%',
+                        transform: 'translate(-50%, -50%)'
+                      }}
+                    >
+                      <div 
+                        className="relative flex items-center justify-center animate-radar-glow-target"
+                        style={{ animationDelay: `${-(315 / 360) * sweepSpeed}s` }}
+                      >
+                        {/* Ping signals */}
+                        <span className={`absolute w-6 h-6 rounded-full border ${themeStyles[radarTheme].textColor} opacity-20 animate-ping`} />
+                        <span className={`absolute w-3.5 h-3.5 rounded-full ${themeStyles[radarTheme].lightGlow} border ${themeStyles[radarTheme].targetBeacon}`} />
+                        <span className={`w-1.5 h-1.5 rounded-full ${themeStyles[radarTheme].targetCore}`} />
+
+                        {/* Floating mini target label */}
+                        <div className={`absolute left-3.5 top-1/2 -translate-y-1/2 ${themeStyles[radarTheme].badgeBg} backdrop-blur-md rounded border px-1 py-0.5 whitespace-nowrap z-30 font-mono text-[5.5px] font-bold leading-none select-none tracking-normal flex items-center gap-0.5 shadow-md`}>
+                          <span className={`w-0.5 h-0.5 ${themeStyles[radarTheme].targetCore} rounded-full`} />
+                          <span>P_01:ASTRIX_HQ</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* TARGET 2: SECURE SYSTEM RELAY */}
+                    <div 
+                      className="absolute z-25"
+                      style={{ 
+                        left: '72.5%', 
+                        top: '58.2%',
+                        transform: 'translate(-50%, -50%)' 
+                      }}
+                    >
+                      <div 
+                        className="relative flex items-center justify-center animate-radar-glow-target"
+                        style={{ animationDelay: `${-(110 / 360) * sweepSpeed}s` }}
+                      >
+                        <span className="absolute w-3 h-3 rounded-full bg-cyan-400/10 border border-cyan-400/40" />
+                        <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
+                        <div className="absolute right-3.5 top-1/2 -translate-y-1/2 bg-slate-900/90 border border-cyan-500/40 text-cyan-300 backdrop-blur-md rounded px-1 py-0.5 whitespace-nowrap z-30 font-mono text-[5.5px] font-bold leading-none select-none">
+                          R_02:SEC_RELAY
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* TARGET 3: INGRESS GATEWAY */}
+                    <div 
+                      className="absolute z-25"
+                      style={{ 
+                        left: '35.2%', 
+                        top: '81.7%',
+                        transform: 'translate(-50%, -50%)' 
+                      }}
+                    >
+                      <div 
+                        className="relative flex items-center justify-center animate-radar-glow-target"
+                        style={{ animationDelay: `${-(205 / 360) * sweepSpeed}s` }}
+                      >
+                        <span className="absolute w-3 h-3 rounded-full bg-emerald-500/10 border border-emerald-400/40" />
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                        <div className="absolute left-3.5 top-1/2 -translate-y-1/2 bg-slate-900/90 border border-emerald-400/40 text-emerald-300 backdrop-blur-md rounded px-1 py-0.5 whitespace-nowrap z-30 font-mono text-[5.5px] font-bold leading-none select-none">
+                          D_03:INGRESS_03
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* TARGET 4: SATELLITE COMMUNICATIONS ORBITER */}
+                    <div 
+                      className="absolute z-25"
+                      style={{ 
+                        left: '81.1%', 
+                        top: '28.2%',
+                        transform: 'translate(-50%, -50%)' 
+                      }}
+                    >
+                      <div 
+                        className="relative flex items-center justify-center animate-radar-glow-target"
+                        style={{ animationDelay: `${-(55 / 360) * sweepSpeed}s` }}
+                      >
+                        <span className="absolute w-3 h-3 rounded-full bg-amber-500/10 border border-amber-400/30" />
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                        <div className="absolute right-3.5 top-1/2 -translate-y-1/2 bg-slate-900/90 border border-amber-500/30 text-amber-300 backdrop-blur-md rounded px-1 py-0.5 whitespace-nowrap z-30 font-mono text-[5.5px] font-bold leading-none select-none">
+                          S_04:SAT_LINK
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Core central command node */}
+                    <div className="w-3.5 h-3.5 rounded-full bg-slate-900 border border-slate-750 shadow-md z-30 flex items-center justify-center relative">
+                      <div className={`w-1.5 h-1.5 rounded-full ${themeStyles[radarTheme].targetCore} animate-pulse`} />
+                    </div>
+
+                  </div>
+                </div>
+              </div>
+
+              {/* Live telemetry console metrics & toggle bar */}
+              <div className="z-10 relative space-y-3 pt-2 border-t border-slate-800/60 font-mono">
+                {/* Dynamic Telemetry row */}
+                <div className="grid grid-cols-3 gap-2 text-left justify-between select-none">
+                  <div>
+                    <span className="text-[6.5px] text-slate-500 block leading-none">AZIMUTH CONTEXT</span>
+                    <span className={`text-[9.5px] font-extrabold block leading-normal mt-0.5 ${themeStyles[radarTheme].textColor}`}>
+                      {azimuth.toFixed(1)}°
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[6.5px] text-slate-500 block leading-none">TARGET LAT</span>
+                    <span className="text-[9.5px] font-extrabold text-slate-300 block leading-normal mt-0.5">
+                      {jitterLat}° N
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[6.5px] text-slate-500 block leading-none">TARGET LNG</span>
+                    <span className="text-[9.5px] font-extrabold text-slate-300 block leading-normal mt-0.5">
+                      {Math.abs(parseFloat(jitterLng)).toFixed(5)}° W
+                    </span>
+                  </div>
                 </div>
 
-                {/* SF HQ Target Node */}
-                <div className="absolute top-[32%] left-[62%] z-20 group-hover/radar:scale-105 transition-transform duration-300">
-                  <div className="relative flex items-center justify-center">
-                    {/* Pulsing signal rings */}
-                    <span className="absolute w-7 h-7 rounded-full border border-indigo-500/30 animate-ping" />
-                    <span className="absolute w-4 h-4 rounded-full bg-indigo-100/30 border border-indigo-500/20" />
-                    
-                    {/* Blinking central core dot */}
-                    <span className="w-2 h-2 rounded-full bg-[#4F46E5] relative shadow-[0_0_8px_rgba(79,70,229,0.9)] animate-pulse" />
-                    
-                    {/* Floating HUD Node badge */}
-                    <div className="absolute left-3.5 top-1/2 -translate-y-1/2 bg-white/95 backdrop-blur-sm border border-indigo-150 rounded-md px-1.5 py-0.5 shadow-sm whitespace-nowrap z-30 flex items-center gap-1">
-                      <span className="w-1 h-1 bg-[#4F46E5] rounded-full" />
-                      <span className="font-sans font-bold text-[6.5px] text-[#4F46E5] tracking-wider uppercase">ASTRIX_HQ</span>
+                {/* Instrument Panel Controllers */}
+                <div className="flex flex-wrap gap-x-4 gap-y-2 items-center justify-between text-[7px] font-bold">
+                  {/* sweep speed frequency selectors */}
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-slate-500 uppercase tracking-tight">SCAN FREQ:</span>
+                    <div className="flex bg-slate-900/80 p-0.5 rounded border border-slate-800/80">
+                      {([2, 4, 8] as const).map((spd) => (
+                        <button
+                          key={spd}
+                          type="button"
+                          onClick={() => setSweepSpeed(spd)}
+                          className={`px-1.5 py-0.5 rounded transition-all leading-none uppercase ${
+                            sweepSpeed === spd
+                              ? `${themeStyles[radarTheme].targetCore} text-slate-900 font-black`
+                              : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
+                          }`}
+                        >
+                          {spd === 2 ? '2S' : spd === 4 ? '4S' : '8S'}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* tactile palette selectors */}
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-slate-500 uppercase tracking-tight font-extrabold">DECODER BAND:</span>
+                    <div className="flex bg-slate-900/80 p-0.5 rounded border border-slate-800/80 gap-0.5">
+                      {(['indigo', 'emerald', 'rose'] as const).map((thm) => (
+                        <button
+                          key={thm}
+                          type="button"
+                          onClick={() => setRadarTheme(thm)}
+                          className={`w-3.5 h-3.5 rounded-sm transition-all focus:outline-none border ${
+                            radarTheme === thm ? 'border-white scale-110 shadow-sm' : 'border-transparent opacity-60 hover:opacity-100'
+                          }`}
+                          style={{
+                            backgroundColor: thm === 'indigo' ? '#4F46E5' : thm === 'emerald' ? '#10B981' : '#F43F5E'
+                          }}
+                          title={`Switch to ${thm} telemetry UI`}
+                        />
+                      ))}
                     </div>
                   </div>
                 </div>
-
-                {/* Additional micro background nodes */}
-                <div className="absolute bottom-[28%] left-[24%] z-20 opacity-60">
-                  <div className="relative font-sans">
-                    <span className="absolute -inset-1 rounded-full border border-dashed border-cyan-400/30 animate-spin" style={{ animationDuration: '30s' }} />
-                    <span className="w-1 h-1 rounded-full bg-cyan-400 block" />
-                  </div>
-                </div>
-                <div className="absolute top-[25%] left-[32%] z-20 opacity-45">
-                  <span className="w-1 h-1 rounded-full bg-purple-400 block" />
-                </div>
-                <div className="absolute bottom-[35%] right-[22%] z-20 opacity-40">
-                  <span className="w-1 h-1 rounded-full bg-gray-400 block" />
-                </div>
-
-                {/* Core target hub focus reticle */}
-                <div className="w-4 h-4 rounded-full bg-white border border-gray-350 shadow-sm z-30 flex items-center justify-center relative">
-                  <div className="w-1.5 h-1.5 rounded-full bg-indigo-600 animate-pulse" />
-                </div>
-
-              </div>
-
-              {/* Title & Coordinate status indicator */}
-              <div className="mt-4 text-center z-10 relative">
-                <span className="font-sans text-[8.5px] text-gray-500 tracking-wider font-extrabold uppercase flex items-center gap-2 justify-center">
-                  <span>GLOBAL INGRESS TRACKER</span>
-                  <span className="w-1 h-1 rounded-full bg-gray-300" />
-                  <span className="font-mono text-[#4F46E5] animate-pulse">ACTIVE SECURE</span>
-                </span>
               </div>
             </div>
 
